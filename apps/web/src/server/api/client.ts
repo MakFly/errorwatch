@@ -54,7 +54,24 @@ export async function fetchAPI<T>(endpoint: string, options?: RequestInit & { co
 
   if (!res.ok) {
     logApiCall({ method, url, status: res.status, duration, hasAuth, body, error: res.statusText });
-    throw new Error(`API error: ${res.status} ${res.statusText}`);
+    const { TRPCError } = await import("@trpc/server");
+    const codeMap: Record<number, ConstructorParameters<typeof TRPCError>[0]["code"]> = {
+      400: "BAD_REQUEST",
+      401: "UNAUTHORIZED",
+      403: "FORBIDDEN",
+      404: "NOT_FOUND",
+      405: "METHOD_NOT_SUPPORTED",
+      408: "TIMEOUT",
+      409: "CONFLICT",
+      413: "PAYLOAD_TOO_LARGE",
+      422: "UNPROCESSABLE_CONTENT",
+      429: "TOO_MANY_REQUESTS",
+      499: "CLIENT_CLOSED_REQUEST",
+    };
+    throw new TRPCError({
+      code: codeMap[res.status] ?? "INTERNAL_SERVER_ERROR",
+      message: `API error: ${res.status} ${res.statusText}`,
+    });
   }
 
   logApiCall({ method, url, status: res.status, duration, hasAuth, body });

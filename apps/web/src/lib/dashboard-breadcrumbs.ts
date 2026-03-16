@@ -91,13 +91,6 @@ function buildProjectCrumbs(
   }
 
   if (section === "settings") {
-    if (subSection === "integration-test") {
-      return [
-        { label: "Settings", href: `${basePath}/settings` },
-        { label: "Integration Test" },
-      ];
-    }
-
     return [{ label: "Settings" }];
   }
 

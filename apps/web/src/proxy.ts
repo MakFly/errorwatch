@@ -5,6 +5,7 @@ import { MONITORING_API_URL } from "@/lib/config";
 const API_URL = MONITORING_API_URL;
 const API_VERSION = "v1";
 const FAIL_OPEN = process.env.AUTH_FAIL_OPEN === "true" || process.env.NODE_ENV !== "production";
+const SELF_HOSTED = process.env.SELF_HOSTED === "true";
 
 const CACHE_TTL = 30000;
 
@@ -65,6 +66,11 @@ function invalidateSessionAndRedirect(
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const cookieHeader = request.headers.get("cookie") ?? "";
+
+  // Self-hosted: skip marketing page, go straight to login
+  if (SELF_HOSTED && pathname === "/") {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
 
   const publicRoutes = ["/", "/login", "/signup", "/invite"];
   const isPublicRoute = publicRoutes.some(

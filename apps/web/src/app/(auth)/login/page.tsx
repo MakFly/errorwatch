@@ -102,7 +102,7 @@ function LoginForm() {
           window.location.href = "/dashboard";
         },
         onError: (error) => {
-          const errorMessage = (error as any)?.message || (error as any)?.error?.message || "Login failed";
+          const errorMessage = error instanceof Error ? error.message : "Login failed";
           toast.error(errorMessage);
           setIsLoading(false);
         },

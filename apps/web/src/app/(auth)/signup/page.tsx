@@ -100,7 +100,7 @@ export default function SignupPage() {
           window.location.href = "/onboarding";
         },
         onError: (error) => {
-          const errorMessage = (error as any)?.message || (error as any)?.error?.message || "Signup failed";
+          const errorMessage = error instanceof Error ? error.message : "Signup failed";
           toast.error(errorMessage);
           setIsLoading(false);
         },

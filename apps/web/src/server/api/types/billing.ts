@@ -12,6 +12,7 @@ export type QuotaStatus = {
 export type BillingSummary = {
   plan: PlanType;
   billingEnabled: boolean;
+  selfHosted: boolean;
   quotas: {
     eventsPerMonth: number;
     retentionDays: number;

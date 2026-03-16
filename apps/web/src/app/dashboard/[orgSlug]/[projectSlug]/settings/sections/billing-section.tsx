@@ -50,6 +50,7 @@ export function BillingSection() {
   const plan = billingSummary?.plan || "free";
   const usage = billingSummary?.usage;
   const quotas = billingSummary?.quotas;
+  const selfHosted = billingSummary?.selfHosted ?? false;
   const isPaidPlan = plan !== "free";
   const hasBillingCustomer = !!billingSummary?.billing?.stripeCustomerId;
   const billingEnabled = billingSummary?.billingEnabled ?? false;
@@ -89,7 +90,7 @@ export function BillingSection() {
               </p>
             </div>
             <Badge variant={isPaidPlan ? "default" : "secondary"}>
-              {isPaidPlan ? "Active" : "Free"}
+              {selfHosted ? "Self-Hosted" : isPaidPlan ? "Active" : "Free"}
             </Badge>
           </div>
 
@@ -98,7 +99,11 @@ export function BillingSection() {
             <p>{quotas?.users === -1 ? "Unlimited" : quotas?.users} users</p>
           </div>
 
-          {isPaidPlan && hasBillingCustomer ? (
+          {selfHosted ? (
+            <p className="text-xs text-muted-foreground">
+              Self-hosted mode — all features unlocked.
+            </p>
+          ) : isPaidPlan && hasBillingCustomer ? (
             <Button
               className="w-full"
               variant="outline"
@@ -119,7 +124,7 @@ export function BillingSection() {
             </Button>
           )}
 
-          {!billingEnabled && (
+          {!billingEnabled && !selfHosted && (
             <p className="text-xs text-muted-foreground">
               Stripe not configured. Add keys to enable billing.
             </p>

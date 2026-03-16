@@ -351,7 +351,7 @@ export function GeneralSection() {
                   <Badge variant="secondary">Set</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Plan: {profile?.plan || "free"}
+                  Password authentication enabled
                 </p>
               </div>
             ) : (

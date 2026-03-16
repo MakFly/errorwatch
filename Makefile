@@ -16,22 +16,19 @@ COMPOSE_PROD := docker-compose.prod.yml
 POSTGRES_USER := errorwatch
 POSTGRES_DB := errorwatch
 
+# Postgres password is read from .env by Docker Compose
+
 .PHONY: help
 
 help: ## Show this help
 	@echo "$(CYAN)ErrorWatch Makefile$(RESET)"
 	@echo ""
-	@echo "$(CYAN)DEVELOPMENT:$(RESET)"
-	@grep -E '^dev-|^start-|^stop:|^status:|^install:|^build:|^clean:' $(MAKEFILE_LIST) | grep -E '^[^:]*:' | sed 's/:.*## /: /' | sed 's/^/  /'
-	@echo ""
-	@echo "$(CYAN)INFRASTRUCTURE:$(RESET)"
-	@grep -E '^(infra|db-|redis-)' $(MAKEFILE_LIST) | grep -E '^[^:]*:' | sed 's/:.*## /: /' | sed 's/^/  /'
-	@echo ""
-	@echo "$(CYAN)PRODUCTION (VPS - Native):$(RESET)"
-	@grep -E '^prod-oneshot' $(MAKEFILE_LIST) | grep -E '^[^:]*:' | sed 's/:.*## /: /' | sed 's/^/  /'
-	@echo ""
-	@echo "$(CYAN)PRODUCTION (Docker):$(RESET)"
-	@grep -E '^prod-docker' $(MAKEFILE_LIST) | grep -E '^[^:]*:' | sed 's/:.*## /: /' | sed 's/^/  /'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; \
+			/^(install|build|clean|dev|start|stop|status)/ {dev=dev"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
+			/^infra-|^db-|^redis-/ {infra=infra"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
+			/^prod-/ {prod=prod"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
+			END {print "\n$(YELLOW)DEVELOPMENT:$(RESET)" dev "\n\n$(YELLOW)INFRASTRUCTURE:$(RESET)" infra "\n\n$(YELLOW)PRODUCTION:$(RESET)" prod}'
 
 # =============================================================================
 # DEVELOPMENT
@@ -40,6 +37,9 @@ help: ## Show this help
 install: ## Install all dependencies
 	@echo "$(GREEN)Installing dependencies...$(RESET)"
 	@bun install
+	@test -f .env || (echo "POSTGRES_PASSWORD=errorwatch_dev_password" > .env && echo "$(YELLOW)Created .env with default Docker credentials$(RESET)")
+	@test -f apps/api/.env || (cp apps/api/.env.example apps/api/.env && echo "$(YELLOW)Created apps/api/.env from .env.example — edit it with your values$(RESET)")
+	@test -f apps/web/.env.local || (cp apps/web/.env.local.example apps/web/.env.local 2>/dev/null && echo "$(YELLOW)Created apps/web/.env.local from example$(RESET)" || true)
 
 build: ## Build all apps for production
 	@echo "$(GREEN)Building applications...$(RESET)"
@@ -50,30 +50,30 @@ clean: ## Clean build artifacts
 	@rm -rf apps/web/.next
 	@rm -rf apps/api/dist
 
-dev: ## Show dev instructions
-	@echo "$(CYAN)=== Development ===$(RESET)"
-	@echo "Terminal 1: $(YELLOW)make dev-api$(RESET)"
-	@echo "Terminal 2: $(YELLOW)make dev-dashboard$(RESET)"
-	@echo ""
-	@$(MAKE) infra-check
+dev: infra-up infra-wait db-push ## Start infra + API + Web concurrently
+	@echo "$(GREEN)Starting API (3333) + Web (4001)...$(RESET)"
+	@bun run dev
 
-dev-api: ## Start API server (port 3333)
+dev-api: ## Start API server only (port 3333)
 	@cd apps/api && bun run dev:standalone
 
-dev-dashboard: ## Start dashboard (port 4001)
+dev-web: ## Start web dashboard only (port 4001)
 	@cd apps/web && bun run dev:standalone
 
-start: ## Start all dev services
-	@$(MAKE) dev
+start: dev ## Alias for dev
 
 stop: ## Stop all dev processes
-	@pkill -f "tsx" 2>/dev/null || true
-	@pkill -f "next" 2>/dev/null || true
+	@echo "$(YELLOW)Stopping dev processes...$(RESET)"
+	@pkill -f "tsx.*src/index.ts" 2>/dev/null || true
+	@pkill -f "next dev" 2>/dev/null || true
+	@echo "$(GREEN)Done$(RESET)"
 
 status: ## Check dev services
 	@echo "$(CYAN)=== Dev Status ===$(RESET)"
-	@curl -s -o /dev/null -w "Dashboard:   HTTP %{http_code}\n" http://localhost:4001 || echo "Dashboard:   $(RED)Not running$(RESET)"
-	@curl -s -o /dev/null -w "API Server:  HTTP %{http_code}\n" http://localhost:3333/health || echo "API Server:  $(RED)Not running$(RESET)"
+	@curl -s -o /dev/null -w "Dashboard:   HTTP %{http_code}\n" http://localhost:4001 2>/dev/null || echo "Dashboard:   $(RED)Not running$(RESET)"
+	@curl -s -o /dev/null -w "API Server:  HTTP %{http_code}\n" http://localhost:3333/health 2>/dev/null || echo "API Server:  $(RED)Not running$(RESET)"
+	@echo ""
+	@$(MAKE) infra-check
 
 # =============================================================================
 # INFRASTRUCTURE (Docker)
@@ -82,6 +82,13 @@ status: ## Check dev services
 infra-up: ## Start Docker infra (postgres + redis)
 	@echo "$(GREEN)Starting infrastructure...$(RESET)"
 	@docker compose -f $(COMPOSE_DEV) up -d postgres redis
+
+infra-wait: ## Wait for postgres + redis to be healthy
+	@echo "$(CYAN)Waiting for PostgreSQL...$(RESET)"
+	@until docker compose -f $(COMPOSE_DEV) exec -T postgres pg_isready -U $(POSTGRES_USER) -d $(POSTGRES_DB) >/dev/null 2>&1; do sleep 1; done
+	@echo "$(CYAN)Waiting for Redis...$(RESET)"
+	@until docker compose -f $(COMPOSE_DEV) exec -T redis redis-cli ping >/dev/null 2>&1; do sleep 1; done
+	@echo "$(GREEN)Infrastructure ready$(RESET)"
 
 infra-down: ## Stop Docker infra
 	@echo "$(YELLOW)Stopping infrastructure...$(RESET)"
@@ -96,8 +103,9 @@ infra-check: ## Check infra status
 # =============================================================================
 
 db-create: ## Create database (dev)
-	@docker compose -f $(COMPOSE_DEV) exec postgres psql -U errorwatch -d errorwatch -c "CREATE DATABASE IF NOT EXISTS errorwatch;" 2>/dev/null || \
-		docker compose -f $(COMPOSE_DEV) exec postgres psql -U errorwatch -c "CREATE DATABASE errorwatch;"
+	@docker compose -f $(COMPOSE_DEV) exec postgres psql -U $(POSTGRES_USER) -tc \
+		"SELECT 1 FROM pg_database WHERE datname = '$(POSTGRES_DB)'" | grep -q 1 || \
+		docker compose -f $(COMPOSE_DEV) exec postgres psql -U $(POSTGRES_USER) -c "CREATE DATABASE $(POSTGRES_DB);"
 
 db-push: ## Push schema to database
 	@cd apps/api && bun run db:push
@@ -105,9 +113,9 @@ db-push: ## Push schema to database
 db-migrate: ## Run migrations
 	@cd apps/api && bun run db:migrate
 
-db-reset: ## Reset database
-	@echo "$(YELLOW)Resetting database...$(RESET)"
-	@docker compose -f $(COMPOSE_DEV) exec postgres psql -U errorwatch -d errorwatch -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;" 2>/dev/null || true
+db-reset: ## Reset database (destructive!)
+	@echo "$(RED)Resetting database...$(RESET)"
+	@docker compose -f $(COMPOSE_DEV) exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;" 2>/dev/null || true
 	@$(MAKE) db-push
 
 # =============================================================================
@@ -118,56 +126,40 @@ redis-cli: ## Open Redis CLI (dev)
 	@docker compose -f $(COMPOSE_DEV) exec redis redis-cli
 
 # =============================================================================
-# PRODUCTION - ONESHOT (VPS - Native + PM2)
+# PRODUCTION (Full Docker)
 # =============================================================================
 
-prod-oneshot-start: ## Start all services (infra + PM2)
-	@chmod +x scripts/oneshot-start.sh
-	@./scripts/oneshot-start.sh
-
-prod-oneshot-stop: ## Stop PM2 services
-	@bunx pm2 stop all
-
-prod-oneshot-restart: ## Restart all services
-	@$(MAKE) prod-oneshot-stop
-	@$(MAKE) prod-oneshot-start
-
-prod-oneshot-status: ## Check services status
-	@echo "$(CYAN)=== Production Status ===$(RESET)"
-	@bunx pm2 list
-	@echo ""
-	@curl -s -o /dev/null -w "Dashboard: HTTP %{http_code}\n" http://localhost:4001 || echo "Dashboard: $(RED)Not responding$(RESET)"
-	@curl -s -o /dev/null -w "API:      HTTP %{http_code}\n" http://localhost:3333/health/live || echo "API:      $(RED)Not responding$(RESET)"
-
-prod-oneshot-logs: ## Show PM2 logs
-	@bunx pm2 logs
-
-prod-oneshot-logs-api: ## Show API logs
-	@bunx pm2 logs errorwatch-api
-
-prod-oneshot-logs-dashboard: ## Show dashboard logs
-	@bunx pm2 logs errorwatch-dashboard
-
-prod-oneshot-mon: ## Monitor PM2
-	@bunx pm2 monit
-
-# =============================================================================
-# PRODUCTION - DOCKER
-# =============================================================================
-
-prod-docker-up: ## Start production stack (Docker)
+prod-up: ## Build and start production stack
 	@echo "$(GREEN)Starting production stack...$(RESET)"
-	@docker compose -f $(COMPOSE_PROD) up -d
+	@docker compose -f $(COMPOSE_PROD) up -d --build
 
-prod-docker-down: ## Stop production stack
+prod-down: ## Stop production stack
 	@echo "$(YELLOW)Stopping production stack...$(RESET)"
 	@docker compose -f $(COMPOSE_PROD) down
 
-prod-docker-status: ## Check production status
+prod-restart: ## Restart production stack
+	@$(MAKE) prod-down
+	@$(MAKE) prod-up
+
+prod-status: ## Check production status
 	@docker compose -f $(COMPOSE_PROD) ps
 
-prod-docker-logs: ## Show logs
+prod-logs: ## Show production logs
 	@docker compose -f $(COMPOSE_PROD) logs -f
 
-prod-docker-db-shell: ## Open PostgreSQL shell
+prod-logs-api: ## Show API logs
+	@docker compose -f $(COMPOSE_PROD) logs -f api
+
+prod-logs-web: ## Show dashboard logs
+	@docker compose -f $(COMPOSE_PROD) logs -f web
+
+prod-db-push: ## Run migrations in production (via Docker exec)
+	@echo "$(GREEN)Running migrations...$(RESET)"
+	@docker compose -f $(COMPOSE_PROD) exec api bun run db:push
+
+prod-db-shell: ## Open PostgreSQL shell (production)
 	@docker compose -f $(COMPOSE_PROD) exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+
+prod-deploy: ## Full deploy (pull + build + migrate)
+	@chmod +x deploy/deploy.sh
+	@deploy/deploy.sh

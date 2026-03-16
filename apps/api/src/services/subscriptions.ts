@@ -5,6 +5,13 @@ import logger from "../logger";
 import { PLAN_QUOTAS } from "./quotas";
 import type { SubscriptionCheck, OrganizationSubscriptionCheck, PlanType } from "../types/services";
 
+/**
+ * Check if running in self-hosted mode (all users get enterprise access)
+ */
+export function isSelfHosted(): boolean {
+  return process.env.SELF_HOSTED === "true";
+}
+
 // Bypass emails - these users have unlimited access regardless of plan
 const BYPASS_EMAILS = (process.env.SUBSCRIPTION_BYPASS_EMAILS || "")
   .split(",")
@@ -19,6 +26,8 @@ function normalizeEmail(email: string): string {
  * Get the user's current plan from the database
  */
 export async function getUserPlan(userId: string): Promise<PlanType> {
+  if (isSelfHosted()) return "enterprise";
+
   const user = (await db
     .select({ plan: users.plan })
     .from(users)
@@ -31,6 +40,8 @@ export async function getUserPlan(userId: string): Promise<PlanType> {
  * Check if user email is in the bypass list
  */
 export async function isUserBypassed(userId: string): Promise<boolean> {
+  if (isSelfHosted()) return true;
+
   const user = (await db
     .select({ email: users.email })
     .from(users)
@@ -79,6 +90,10 @@ export async function getUserOrganizationCount(userId: string): Promise<number> 
  * Check if user can create a new project based on subscription
  */
 export async function canCreateProject(userId: string): Promise<SubscriptionCheck> {
+  if (isSelfHosted()) {
+    return { allowed: true, currentCount: 0, maxProjects: -1, isBypassed: true, plan: "enterprise" };
+  }
+
   const plan = await getUserPlan(userId);
   const isBypassed = await isUserBypassed(userId);
   const currentCount = await getUserProjectCount(userId);
@@ -133,6 +148,10 @@ export async function canCreateProject(userId: string): Promise<SubscriptionChec
  * Check if user can create a new organization based on subscription
  */
 export async function canCreateOrganization(userId: string): Promise<OrganizationSubscriptionCheck> {
+  if (isSelfHosted()) {
+    return { allowed: true, currentCount: 0, maxOrganizations: -1, isBypassed: true, plan: "enterprise" };
+  }
+
   const plan = await getUserPlan(userId);
   const isBypassed = await isUserBypassed(userId);
   const currentCount = await getUserOrganizationCount(userId);
@@ -187,6 +206,8 @@ export async function canCreateOrganization(userId: string): Promise<Organizatio
  * Resolve plan for a project (uses organization owner plan, with bypass support).
  */
 export async function getProjectPlan(projectId: string): Promise<PlanType> {
+  if (isSelfHosted()) return "enterprise";
+
   const owner = (await db
     .select({ plan: users.plan, email: users.email })
     .from(projects)

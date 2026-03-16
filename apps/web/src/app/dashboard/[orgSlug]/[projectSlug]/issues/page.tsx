@@ -12,7 +12,8 @@ import {
 } from "@/components/issues";
 import { DataTable } from "@/components/ui/data-table";
 import { createIssuesColumns } from "@/components/issues/issues-data-table-columns";
-import type { ErrorLevel } from "@/server/api";
+import type { ErrorLevel, IssueStatus } from "@/server/api";
+import type { IssueGroup } from "@/components/issues/issues-data-table-columns";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { detectEventSource } from "@/lib/event-source";
@@ -63,16 +64,16 @@ export default function IssuesPage() {
     dateRange: filters.dateRange === "all" ? undefined : filters.dateRange,
     projectId: currentProjectId || undefined,
     search: debouncedSearch || undefined,
-    status: filters.status === "all" ? undefined : filters.status as any,
+    status: filters.status === "all" ? undefined : filters.status as IssueStatus,
     level: levelFilter === "all" ? undefined : levelFilter,
   });
 
-  const allGroups = useMemo(() => normalizeGroups(groupsData), [groupsData]);
+  const allGroups = useMemo(() => normalizeGroups<IssueGroup>(groupsData), [groupsData]);
 
   // Client-side source filter
   const groups = useMemo(() => {
     if (filters.source === "all") return allGroups;
-    return allGroups.filter((g: any) => {
+    return allGroups.filter((g) => {
       const source = detectEventSource(g.url);
       return source.type === filters.source;
     });
@@ -81,7 +82,7 @@ export default function IssuesPage() {
   const totalSignals = useMemo(() => {
     if (!groupsData) return 0;
     if (Array.isArray(groupsData)) return groupsData.length;
-    return (groupsData as any).total || 0;
+    return groupsData.total || 0;
   }, [groupsData]);
 
   const hasActiveFilters =
@@ -96,11 +97,11 @@ export default function IssuesPage() {
     if (!groups) return { fatal: 0, error: 0, warning: 0, info: 0, debug: 0 };
 
     return {
-      fatal: groups.filter((g: any) => g.level === "fatal").length,
-      error: groups.filter((g: any) => g.level === "error").length,
-      warning: groups.filter((g: any) => g.level === "warning").length,
-      info: groups.filter((g: any) => g.level === "info").length,
-      debug: groups.filter((g: any) => g.level === "debug").length,
+      fatal: groups.filter((g) => g.level === "fatal").length,
+      error: groups.filter((g) => g.level === "error").length,
+      warning: groups.filter((g) => g.level === "warning").length,
+      info: groups.filter((g) => g.level === "info").length,
+      debug: groups.filter((g) => g.level === "debug").length,
     };
   }, [groups]);
 
@@ -117,7 +118,7 @@ export default function IssuesPage() {
 
   const maxCount = useMemo(() => {
     if (!groups.length) return 0;
-    return Math.max(...groups.map((g: any) => g.count));
+    return Math.max(...groups.map((g) => g.count));
   }, [groups]);
 
   const selectedFingerprints = useMemo(() => {

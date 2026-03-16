@@ -55,8 +55,8 @@ sentry-like/
 │   ├── vue-vite/
 │   └── example-symfony/
 ├── docs/                          # Documentation
-├── docker-compose.yml             # DEPRECATED - Use local dev-infra
-├── docker-compose.dev.yml         # DEPRECATED - Use local dev-infra
+├── docker-compose.yml             # Dev infra (Postgres + Redis)
+├── docker-compose.prod.yml       # Full-Docker production stack
 ├── package.json                   # Workspaces root
 ├── turbo.json                     # Turborepo config
 ├── tsconfig.base.json             # Base TypeScript config

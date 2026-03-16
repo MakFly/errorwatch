@@ -23,7 +23,7 @@ kuma.{$BASE_DOMAIN} {
         -Server
     }
 
-    reverse_proxy {$KUMA_UPSTREAM}
+    reverse_proxy {$KUMA_UPSTREAM:kuma:3001}
 }
 
 # Dashboard
@@ -39,7 +39,7 @@ kuma.{$BASE_DOMAIN} {
         -Server
     }
 
-    reverse_proxy {$DASHBOARD_UPSTREAM}
+    reverse_proxy {$DASHBOARD_UPSTREAM:web:3000}
 }
 
 api.{$DOMAIN} {
@@ -51,7 +51,7 @@ api.{$DOMAIN} {
     # Route them through a dedicated upstream config to avoid 502 from
     # duplicate transfer-encoding handling.
     handle @sse {
-        reverse_proxy {$API_UPSTREAM} {
+        reverse_proxy {$API_UPSTREAM:api:3333} {
             header_up Accept-Encoding identity
             flush_interval -1
             transport http {
@@ -72,6 +72,6 @@ api.{$DOMAIN} {
             -Server
         }
 
-        reverse_proxy {$API_UPSTREAM}
+        reverse_proxy {$API_UPSTREAM:api:3333}
     }
 }

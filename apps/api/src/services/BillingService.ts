@@ -7,11 +7,29 @@ import {
   isStripeConfigured,
 } from "./billing";
 import { checkQuotaStatus, PLAN_QUOTAS } from "./quotas";
-import { getUserProjectCount } from "./subscriptions";
+import { getUserProjectCount, isSelfHosted } from "./subscriptions";
 import type { PlanType } from "../types/services";
 
 export const BillingService = {
   getSummary: async (userId: string, projectId?: string | null) => {
+    if (isSelfHosted()) {
+      const projectCount = await getUserProjectCount(userId);
+      return {
+        plan: "enterprise" as PlanType,
+        quotas: PLAN_QUOTAS.enterprise,
+        projectCount,
+        usage: null,
+        billingEnabled: false,
+        selfHosted: true,
+        billing: {
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+          stripeStatus: null,
+          stripeCurrentPeriodEnd: null,
+        },
+      };
+    }
+
     const user = await UserRepository.findByIdWithBilling(userId);
 
     if (!user) {
@@ -29,6 +47,7 @@ export const BillingService = {
       projectCount,
       usage,
       billingEnabled: isStripeConfigured(),
+      selfHosted: false,
       billing: {
         stripeCustomerId: user.stripeCustomerId,
         stripeSubscriptionId: user.stripeSubscriptionId,

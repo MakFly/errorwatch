@@ -13,7 +13,6 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@errorwatch/shared": "workspace:*",
     "@hono/node-server": "^1.19.7",
     "better-auth": "^1.4.8",
     "bullmq": "^5.66.3",

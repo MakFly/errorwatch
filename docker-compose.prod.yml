@@ -1,13 +1,107 @@
 # ===========================================
-# ErrorWatch Production Docker Compose
-# Apps run on host via PM2, infra + reverse proxy run in Docker.
+# ErrorWatch Production Docker Compose (Full Docker)
 # ===========================================
+# All services run inside Docker. No PM2 or host processes needed.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#   docker compose -f docker-compose.prod.yml exec api bun run db:push
 
 services:
+  # ===========================================
+  # API Server (Hono.js)
+  # ===========================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: errorwatch-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      DATABASE_URL: postgresql://${POSTGRES_USER:-errorwatch}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-errorwatch}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-20}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      REDIS_URL: redis://redis:6379
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?ADMIN_API_KEY is required}
+      API_KEY_HASH_SECRET: ${API_KEY_HASH_SECRET:?API_KEY_HASH_SECRET is required}
+      DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL is required}
+      API_URL: ${API_URL:?API_URL is required}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
+      STRIPE_PRICE_TEAM: ${STRIPE_PRICE_TEAM:-}
+      STRIPE_PRICE_ENTERPRISE: ${STRIPE_PRICE_ENTERPRISE:-}
+      AUTH_FAIL_OPEN: ${AUTH_FAIL_OPEN:-false}
+      SUBSCRIPTION_BYPASS_EMAILS: ${SUBSCRIPTION_BYPASS_EMAILS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    networks:
+      - errorwatch-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3333/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ===========================================
+  # Web Dashboard (Next.js)
+  # ===========================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
+        NEXT_PUBLIC_MONITORING_API_URL: ${NEXT_PUBLIC_MONITORING_API_URL:?NEXT_PUBLIC_MONITORING_API_URL is required}
+    container_name: errorwatch-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+    networks:
+      - errorwatch-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ===========================================
+  # Caddy Reverse Proxy
+  # ===========================================
   caddy:
     image: caddy:2-alpine
     container_name: errorwatch-caddy
     restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
@@ -15,18 +109,19 @@ services:
       DOMAIN: ${DOMAIN:?DOMAIN is required}
       BASE_DOMAIN: ${BASE_DOMAIN:?BASE_DOMAIN is required}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
-      DASHBOARD_UPSTREAM: ${DASHBOARD_UPSTREAM:-host.docker.internal:4001}
-      API_UPSTREAM: ${API_UPSTREAM:-host.docker.internal:3333}
-      KUMA_UPSTREAM: ${KUMA_UPSTREAM:-host.docker.internal:3001}
+      DASHBOARD_UPSTREAM: ${DASHBOARD_UPSTREAM:-web:3000}
+      API_UPSTREAM: ${API_UPSTREAM:-api:3333}
+      KUMA_UPSTREAM: ${KUMA_UPSTREAM:-kuma:3001}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       - errorwatch-net
 
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
   postgres:
     image: postgres:16-alpine
     container_name: errorwatch-postgres
@@ -37,8 +132,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${DOCKER_POSTGRES_PORT:-55432}:5432"
     networks:
       - errorwatch-net
     healthcheck:
@@ -47,7 +140,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
+  # ===========================================
+  # Redis (Queue & Rate Limiting)
+  # ===========================================
   redis:
     image: redis:7-alpine
     container_name: errorwatch-redis
@@ -55,8 +150,6 @@ services:
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
-    ports:
-      - "${DOCKER_REDIS_PORT:-56379}:6379"
     networks:
       - errorwatch-net
     healthcheck:

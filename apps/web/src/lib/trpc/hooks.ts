@@ -36,7 +36,7 @@ export const useGroups = (filters?: GroupsFilter) => {
   useEffect(() => {
     if (!query.data) return;
 
-    const total = 'total' in query.data ? (query.data as any).total : (query.data as any[]).length;
+    const total = 'total' in query.data ? query.data.total : 0;
     const previousCount = previousCountRef.current;
 
     if (previousCount !== null && total > previousCount) {

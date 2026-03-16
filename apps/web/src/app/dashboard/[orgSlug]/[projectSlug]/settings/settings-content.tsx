@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import {
   Settings,
   Bell,
@@ -9,12 +8,8 @@ import {
   Database,
   CreditCard,
   Building2,
-  FlaskConical,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { useCurrentOrganization } from "@/contexts/OrganizationContext";
-import { useCurrentProject } from "@/contexts/ProjectContext";
 import {
   GeneralSection,
   AlertsSection,
@@ -24,71 +19,30 @@ import {
   OrganizationsSection,
 } from "./sections";
 
+const tabs = [
+  { value: "general", label: "General", icon: Settings },
+  { value: "alerts", label: "Alerts", icon: Bell },
+  { value: "api-keys", label: "API Keys", icon: Key },
+  { value: "billing", label: "Billing", icon: CreditCard },
+  { value: "data", label: "Data", icon: Database },
+  { value: "organizations", label: "Organizations", icon: Building2 },
+] as const;
+
 export function SettingsContent() {
-  const { currentOrgSlug } = useCurrentOrganization();
-  const { currentProject } = useCurrentProject();
-
-  const integrationTestPath =
-    currentOrgSlug && currentProject?.slug
-      ? `/dashboard/${currentOrgSlug}/${currentProject.slug}/settings/integration-test`
-      : "/dashboard";
-
   return (
     <div className="px-4 lg:px-6">
-      {process.env.NODE_ENV !== "production" && (
-        <div className="mb-4 flex justify-end">
-          <Button asChild variant="outline">
-            <Link href={integrationTestPath}>
-              <FlaskConical className="mr-2 h-4 w-4" />
-              Integration Test
-            </Link>
-          </Button>
-        </div>
-      )}
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="mb-6 h-auto flex-wrap gap-1 bg-transparent p-0">
-          <TabsTrigger
-            value="general"
-            className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg"
-          >
-            <Settings className="h-4 w-4" />
-            General
-          </TabsTrigger>
-          <TabsTrigger
-            value="alerts"
-            className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg"
-          >
-            <Bell className="h-4 w-4" />
-            Alerts
-          </TabsTrigger>
-          <TabsTrigger
-            value="api-keys"
-            className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg"
-          >
-            <Key className="h-4 w-4" />
-            API Keys
-          </TabsTrigger>
-          <TabsTrigger
-            value="billing"
-            className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg"
-          >
-            <CreditCard className="h-4 w-4" />
-            Billing
-          </TabsTrigger>
-          <TabsTrigger
-            value="data"
-            className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg"
-          >
-            <Database className="h-4 w-4" />
-            Data
-          </TabsTrigger>
-          <TabsTrigger
-            value="organizations"
-            className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg"
-          >
-            <Building2 className="h-4 w-4" />
-            Organizations
-          </TabsTrigger>
+          {tabs.map(({ value, label, icon: Icon }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg"
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
