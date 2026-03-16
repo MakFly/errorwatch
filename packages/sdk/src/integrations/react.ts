@@ -3,7 +3,10 @@
  *
  * @example
  * // In your app entry point
- * import { init, ErrorBoundary } from '@errorwatch/sdk/react'
+ * import React from 'react'
+ * import { init, createErrorBoundary } from '@errorwatch/sdk/react'
+ *
+ * const ErrorBoundary = createErrorBoundary(React)
  *
  * init({
  *   dsn: 'http://localhost:3333',
@@ -159,10 +162,12 @@ export function createErrorBoundary(React: any) {
   }
 }
 
-/**
- * Pre-built ErrorBoundary for projects that have React in scope
- * Uses globalThis.React if available
- */
-export const ErrorBoundary = typeof globalThis !== 'undefined' && (globalThis as any).React
-  ? createErrorBoundary((globalThis as any).React)
-  : null
+// NOTE: The pre-built `ErrorBoundary` export has been removed because it called
+// `React.createElement` at module load time, which fails in SSR environments
+// where React may not yet be available.
+//
+// Use `createErrorBoundary(React)` instead:
+//
+//   import React from 'react'
+//   import { createErrorBoundary } from '@errorwatch/sdk/react'
+//   const ErrorBoundary = createErrorBoundary(React)

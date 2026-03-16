@@ -14,9 +14,10 @@ export async function cleanupOldEvents(retentionDays: number = DEFAULT_EVENT_RET
 
   const result = await db
     .delete(errorEvents)
-    .where(lt(errorEvents.createdAt, cutoffDate));
+    .where(lt(errorEvents.createdAt, cutoffDate))
+    .returning({ id: errorEvents.id });
 
-  const deletedCount = (result as { changes?: number }).changes || 0;
+  const deletedCount = result.length;
 
   logger.info("Event cleanup completed", { deletedCount });
   return deletedCount;
@@ -54,9 +55,10 @@ export async function cleanupOldNotifications(retentionDays: number = DEFAULT_NO
 
   const result = await db
     .delete(notifications)
-    .where(lt(notifications.createdAt, cutoffDate));
+    .where(lt(notifications.createdAt, cutoffDate))
+    .returning({ id: notifications.id });
 
-  const deletedCount = (result as { changes?: number }).changes || 0;
+  const deletedCount = result.length;
 
   logger.info("Notification cleanup completed", { deletedCount });
   return deletedCount;
@@ -69,9 +71,10 @@ export async function cleanupOldApplicationLogs(retentionHours: number = 24): Pr
 
   const result = await db
     .delete(applicationLogs)
-    .where(lt(applicationLogs.createdAt, cutoffDate));
+    .where(lt(applicationLogs.createdAt, cutoffDate))
+    .returning({ id: applicationLogs.id });
 
-  const deletedCount = (result as { changes?: number }).changes || 0;
+  const deletedCount = result.length;
   logger.info("Application logs cleanup completed", { deletedCount });
 
   return deletedCount;

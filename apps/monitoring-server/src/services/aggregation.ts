@@ -73,7 +73,7 @@ export async function aggregateHourlyMetrics(targetDate: Date): Promise<number> 
         p99 = EXCLUDED.p99
     `);
 
-    totalRows += (result as any).rowCount || 0;
+    totalRows += result.length;
   }
 
   logger.info("Hourly metrics aggregation complete", {
@@ -149,7 +149,7 @@ export async function aggregateHourlyTransactions(targetDate: Date): Promise<num
         apdex_frustrated = EXCLUDED.apdex_frustrated
     `);
 
-    totalRows += (result as any).rowCount || 0;
+    totalRows += result.length;
   }
 
   logger.info("Hourly transaction aggregation complete", {
@@ -262,8 +262,8 @@ export async function aggregateDailyFromHourly(targetDate: Date): Promise<{ metr
   `);
 
   const result = {
-    metrics: (metricsResult as any).rowCount || 0,
-    transactions: (transResult as any).rowCount || 0,
+    metrics: metricsResult.length,
+    transactions: transResult.length,
   };
 
   logger.info("Daily aggregation complete", {
@@ -300,9 +300,9 @@ export async function cleanupExpiredPerformanceData(retentionDays: number = 30):
   `);
 
   const result = {
-    metrics: (metricsResult as any).rowCount || 0,
-    transactions: (transResult as any).rowCount || 0,
-    spans: (spansResult as any).rowCount || 0,
+    metrics: metricsResult.length,
+    transactions: transResult.length,
+    spans: spansResult.length,
   };
 
   logger.info("Performance data cleanup complete", {
@@ -333,8 +333,8 @@ export async function cleanupOldAggregates(retentionMonths: number = 12): Promis
   `);
 
   const result = {
-    hourlyMetrics: (metricsResult as any).rowCount || 0,
-    hourlyTransactions: (transResult as any).rowCount || 0,
+    hourlyMetrics: metricsResult.length,
+    hourlyTransactions: transResult.length,
   };
 
   logger.info("Old aggregates cleanup complete", {
