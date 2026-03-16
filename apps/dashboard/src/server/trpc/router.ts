@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { router, publicProcedure, createCallerFactory, createTRPCContext } from "./trpc";
 import { api } from "../api";
+import { adminRouter } from "./routers/admin";
 
 /**
  * Protected procedure middleware - requires authentication
@@ -850,6 +851,7 @@ export const appRouter = router({
   performance: performanceRouter,
   logs: logsRouter,
   attention: attentionRouter,
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;

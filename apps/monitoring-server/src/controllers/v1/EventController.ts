@@ -161,7 +161,7 @@ export const submit = async (c: Context) => {
       sessionId: shouldLinkReplay ? (input.session_id || null) : null,
       createdAt: createdAt.toISOString(),
       release: input.release || null,
-      userId: rawInput.user_id || null,
+      userId: input.user_id || null,
     }, { jobId });
 
     logger.debug("Event queued", {

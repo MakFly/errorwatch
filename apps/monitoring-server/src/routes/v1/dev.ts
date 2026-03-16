@@ -3,6 +3,7 @@
  */
 import { Hono } from "hono";
 import { auth } from "../../middleware/auth";
+import { adminAuth } from "../../middleware/admin-auth";
 import { db } from "../../db/connection";
 import { errorGroups, errorEvents, replaySessions, sessionEvents, users } from "../../db/schema";
 import logger from "../../logger";
@@ -18,9 +19,9 @@ router.use("*", async (c, next) => {
 });
 
 /**
- * List users (email, name) - no auth, for login page autofill in dev
+ * List users (email, name) - admin auth required, for login page autofill in dev
  */
-router.get("/users", async (c) => {
+router.get("/users", adminAuth(), async (c) => {
   const rows = await db
     .select({ email: users.email, name: users.name })
     .from(users)

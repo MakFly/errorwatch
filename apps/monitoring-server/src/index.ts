@@ -8,6 +8,14 @@ import { securityHeaders } from "./middleware/security-headers";
 import { rateLimit } from "./middleware/rate-limit";
 import api from "./routes";
 
+// === Startup Environment Validation ===
+const REQUIRED_ENV_VARS = ["API_KEY_HASH_SECRET"] as const;
+for (const key of REQUIRED_ENV_VARS) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+}
+
 const app = new Hono();
 
 // === Environment Configuration ===

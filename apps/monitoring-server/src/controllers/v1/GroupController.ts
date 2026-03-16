@@ -215,6 +215,25 @@ export const batchUpdateStatus = async (c: AuthContext) => {
 
   logger.info("PATCH /api/v1/groups/batch/status", { count: fingerprints.length, status, userId });
 
+  // Verify project access for each group before performing the batch update
+  for (const fingerprint of fingerprints) {
+    const group = await GroupService.getById(fingerprint);
+    if (!group) {
+      return c.json({ error: `Group not found: ${fingerprint}` }, 404);
+    }
+    if (group.projectId) {
+      const hasAccess = await verifyProjectAccess(group.projectId, userId);
+      if (!hasAccess) {
+        logger.warn("User attempted to batch update groups without project permission", {
+          userId,
+          fingerprint,
+          projectId: group.projectId,
+        });
+        return c.json({ error: "Forbidden: You don't have access to this project" }, 403);
+      }
+    }
+  }
+
   const updated = await GroupRepository.batchUpdateStatus(fingerprints, status, userId);
   return c.json({ updated });
 };
@@ -230,6 +249,42 @@ export const merge = async (c: AuthContext) => {
 
   logger.info("POST /api/v1/groups/:fingerprint/merge", { parentFingerprint, children: fingerprints.length, userId });
 
+  // Verify project access for the parent group
+  const parentGroup = await GroupService.getById(parentFingerprint);
+  if (!parentGroup) {
+    return c.json({ error: "Group not found" }, 404);
+  }
+  if (parentGroup.projectId) {
+    const hasAccess = await verifyProjectAccess(parentGroup.projectId, userId);
+    if (!hasAccess) {
+      logger.warn("User attempted to merge groups without project permission", {
+        userId,
+        fingerprint: parentFingerprint,
+        projectId: parentGroup.projectId,
+      });
+      return c.json({ error: "Forbidden: You don't have access to this project" }, 403);
+    }
+  }
+
+  // Verify project access for each child group
+  for (const fingerprint of fingerprints) {
+    const group = await GroupService.getById(fingerprint);
+    if (!group) {
+      return c.json({ error: `Group not found: ${fingerprint}` }, 404);
+    }
+    if (group.projectId) {
+      const hasAccess = await verifyProjectAccess(group.projectId, userId);
+      if (!hasAccess) {
+        logger.warn("User attempted to merge groups without project permission", {
+          userId,
+          fingerprint,
+          projectId: group.projectId,
+        });
+        return c.json({ error: "Forbidden: You don't have access to this project" }, 403);
+      }
+    }
+  }
+
   const merged = await GroupRepository.merge(parentFingerprint, fingerprints);
   return c.json({ merged });
 };
@@ -239,6 +294,22 @@ export const unmerge = async (c: AuthContext) => {
   const fingerprint = c.req.param("fingerprint");
 
   logger.info("POST /api/v1/groups/:fingerprint/unmerge", { fingerprint, userId });
+
+  const group = await GroupService.getById(fingerprint);
+  if (!group) {
+    return c.json({ error: "Group not found" }, 404);
+  }
+  if (group.projectId) {
+    const hasAccess = await verifyProjectAccess(group.projectId, userId);
+    if (!hasAccess) {
+      logger.warn("User attempted to unmerge group without project permission", {
+        userId,
+        fingerprint,
+        projectId: group.projectId,
+      });
+      return c.json({ error: "Forbidden: You don't have access to this project" }, 403);
+    }
+  }
 
   await GroupRepository.unmerge(fingerprint);
   return c.json({ success: true });
@@ -254,6 +325,22 @@ export const snooze = async (c: AuthContext) => {
   }
 
   logger.info("PATCH /api/v1/groups/:fingerprint/snooze", { fingerprint, until, userId });
+
+  const group = await GroupService.getById(fingerprint);
+  if (!group) {
+    return c.json({ error: "Group not found" }, 404);
+  }
+  if (group.projectId) {
+    const hasAccess = await verifyProjectAccess(group.projectId, userId);
+    if (!hasAccess) {
+      logger.warn("User attempted to snooze group without project permission", {
+        userId,
+        fingerprint,
+        projectId: group.projectId,
+      });
+      return c.json({ error: "Forbidden: You don't have access to this project" }, 403);
+    }
+  }
 
   const result = await GroupRepository.snooze(fingerprint, new Date(until), userId);
   return c.json(result[0]);

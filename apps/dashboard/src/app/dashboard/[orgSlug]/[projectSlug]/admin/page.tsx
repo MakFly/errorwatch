@@ -10,13 +10,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Clock,
   Play,
   RefreshCw,
@@ -26,64 +19,10 @@ import {
   Loader2,
   Calendar,
 } from "lucide-react";
+import { trpc } from "@/lib/trpc/client";
 
 const API_URL =
   process.env.NEXT_PUBLIC_MONITORING_API_URL || "http://localhost:3333";
-const ADMIN_KEY = process.env.NEXT_PUBLIC_ADMIN_API_KEY || "";
-
-type CronStatus = {
-  scheduledJobs: {
-    key: string;
-    name: string;
-    pattern: string;
-    next: string | null;
-  }[];
-  queueStats: {
-    waiting: number;
-    active: number;
-    completed: number;
-    failed: number;
-    delayed: number;
-  };
-  recentHistory: {
-    id: string;
-    name: string;
-    data: Record<string, unknown>;
-    finishedOn: string | null;
-    returnvalue: unknown;
-    duration: number | null;
-  }[];
-};
-
-type FailedJob = {
-  id: string;
-  name: string;
-  data: Record<string, unknown>;
-  failedReason: string;
-  attemptsMade: number;
-  timestamp: string | null;
-  finishedOn: string | null;
-  stacktrace: string[];
-};
-
-async function adminFetch<T>(
-  path: string,
-  options?: RequestInit
-): Promise<T> {
-  const res = await fetch(`${API_URL}/api/v1/admin${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${ADMIN_KEY}`,
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 function formatDuration(ms: number | null): string {
   if (ms == null) return "-";
@@ -115,76 +54,71 @@ const CRON_DESCRIPTIONS: Record<string, { label: string; description: string }> 
 };
 
 export default function AdminPage() {
-  const [status, setStatus] = useState<CronStatus | null>(null);
-  const [failedJobs, setFailedJobs] = useState<FailedJob[]>([]);
-  const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [result, setResult] = useState<{ type: string; data: unknown } | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [targetDate, setTargetDate] = useState(
     new Date(Date.now() - 86400000).toISOString().split("T")[0]
   );
 
+  const isConfiguredQuery = trpc.admin.isConfigured.useQuery();
+
+  const cronStatusQuery = trpc.admin.getCronStatus.useQuery(undefined, {
+    enabled: false, // manual fetch only
+  });
+
+  const runJobMutation = trpc.admin.runJobSync.useMutation();
+  const clearFailedMutation = trpc.admin.clearFailedJobs.useMutation();
+
   const fetchStatus = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [cronStatus, failed] = await Promise.all([
-        adminFetch<CronStatus>("/cron/status"),
-        adminFetch<FailedJob[]>("/cron/failed"),
-      ]);
-      setStatus(cronStatus);
-      setFailedJobs(failed);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch status");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    await cronStatusQuery.refetch();
+  }, [cronStatusQuery]);
 
   const triggerJob = useCallback(
-    async (type: string) => {
+    async (type: "aggregate-hourly" | "aggregate-daily" | "cleanup-expired") => {
       setActionLoading(type);
       setResult(null);
-      setError(null);
       try {
-        const data = await adminFetch<unknown>("/cron/run-sync", {
-          method: "POST",
-          body: JSON.stringify({ type, targetDate }),
-        });
+        const data = await runJobMutation.mutateAsync({ type, targetDate });
         setResult({ type, data });
-        fetchStatus();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Job failed");
+        cronStatusQuery.refetch();
       } finally {
         setActionLoading(null);
       }
     },
-    [targetDate, fetchStatus]
+    [targetDate, runJobMutation, cronStatusQuery]
   );
 
   const clearFailed = useCallback(async () => {
     setActionLoading("clear-failed");
     try {
-      await adminFetch("/cron/failed", { method: "DELETE" });
-      setFailedJobs([]);
-      fetchStatus();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to clear");
+      await clearFailedMutation.mutateAsync();
+      cronStatusQuery.refetch();
     } finally {
       setActionLoading(null);
     }
-  }, [fetchStatus]);
+  }, [clearFailedMutation, cronStatusQuery]);
 
-  if (!ADMIN_KEY) {
+  const loading = cronStatusQuery.isFetching;
+  const error =
+    cronStatusQuery.error?.message ||
+    runJobMutation.error?.message ||
+    clearFailedMutation.error?.message ||
+    null;
+
+  const status = cronStatusQuery.data?.cronStatus ?? null;
+  const failedJobs = cronStatusQuery.data?.failedJobs ?? [];
+
+  // Show configuration error if ADMIN_API_KEY is not set server-side
+  if (isConfiguredQuery.data && !isConfiguredQuery.data.configured) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
         <AlertCircle className="size-12 text-amber-500" />
         <h2 className="text-lg font-semibold">Admin API Key Required</h2>
         <p className="max-w-md text-center text-sm text-muted-foreground">
-          Set <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">NEXT_PUBLIC_ADMIN_API_KEY</code> in
+          Set <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">ADMIN_API_KEY</code> in
           your <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">.env.local</code> to match the
           monitoring server&apos;s <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">ADMIN_API_KEY</code>.
+          This key is read server-side only and is never exposed to the browser.
         </p>
       </div>
     );
@@ -327,7 +261,7 @@ export default function AdminPage() {
                 />
               </div>
             </div>
-            {Object.entries(CRON_DESCRIPTIONS).map(([type, { label }]) => (
+            {(Object.keys(CRON_DESCRIPTIONS) as Array<"aggregate-hourly" | "aggregate-daily" | "cleanup-expired">).map((type) => (
               <button
                 key={type}
                 onClick={() => triggerJob(type)}
@@ -339,7 +273,7 @@ export default function AdminPage() {
                 ) : (
                   <Play className="size-4" />
                 )}
-                {label}
+                {CRON_DESCRIPTIONS[type].label}
               </button>
             ))}
           </div>
