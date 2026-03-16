@@ -104,9 +104,6 @@ if grep -q "ERRORWATCH_ENABLED" "$LARAVEL_DIR/.env"; then
   sed -i '' 's/^ERRORWATCH_ENABLED=.*/ERRORWATCH_ENABLED=true/' "$LARAVEL_DIR/.env"
   sed -i '' "s|^ERRORWATCH_ENDPOINT=.*|ERRORWATCH_ENDPOINT=$API_URL|" "$LARAVEL_DIR/.env"
   sed -i '' "s/^ERRORWATCH_API_KEY=.*/ERRORWATCH_API_KEY=$API_KEY/" "$LARAVEL_DIR/.env"
-  # Ensure log level is set to debug for full log streaming
-  grep -q "^ERRORWATCH_LOG_LEVEL=" "$LARAVEL_DIR/.env" || echo "ERRORWATCH_LOG_LEVEL=debug" >> "$LARAVEL_DIR/.env"
-  grep -q "^ERRORWATCH_LOGGING_ENABLED=" "$LARAVEL_DIR/.env" || echo "ERRORWATCH_LOGGING_ENABLED=true" >> "$LARAVEL_DIR/.env"
 else
   cat >> "$LARAVEL_DIR/.env" <<EOF
 
@@ -114,8 +111,6 @@ else
 ERRORWATCH_ENABLED=true
 ERRORWATCH_ENDPOINT=$API_URL
 ERRORWATCH_API_KEY=$API_KEY
-ERRORWATCH_LOG_LEVEL=debug
-ERRORWATCH_LOGGING_ENABLED=true
 EOF
 fi
 

@@ -28,9 +28,7 @@ error_monitoring:
     configSnippet: (apiKey: string, endpoint: string) => `# .env
 ERRORWATCH_ENABLED=true
 ERRORWATCH_ENDPOINT=${endpoint}
-ERRORWATCH_API_KEY=${apiKey}
-ERRORWATCH_LOG_LEVEL=debug
-ERRORWATCH_LOGGING_ENABLED=true`,
+ERRORWATCH_API_KEY=${apiKey}`,
   },
   react: {
     name: "React",
