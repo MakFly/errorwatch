@@ -1,6 +1,6 @@
 import { db, pgClient } from "../db/connection";
 import { applicationLogs, errorEvents, errorGroups, notifications } from "../db/schema";
-import { lt, eq } from "drizzle-orm";
+import { lt } from "drizzle-orm";
 import logger from "../logger";
 import type { RetentionStats } from "../types/services";
 
@@ -26,26 +26,24 @@ export async function cleanupOldEvents(retentionDays: number = DEFAULT_EVENT_RET
 export async function cleanupOrphanedGroups(): Promise<number> {
   logger.info("Starting orphaned group cleanup");
 
-  const orphanedGroups = await pgClient`
-    SELECT eg.fingerprint
-    FROM error_groups eg
-    LEFT JOIN error_events ee ON eg.fingerprint = ee.fingerprint
-    WHERE ee.id IS NULL
+  // Single batch DELETE using a NOT IN subquery instead of N individual deletes
+  const deleted = await pgClient<{ fingerprint: string }[]>`
+    DELETE FROM error_groups
+    WHERE fingerprint NOT IN (
+      SELECT DISTINCT fingerprint FROM error_events
+    )
+    RETURNING fingerprint
   `;
 
-  if (orphanedGroups.length === 0) {
+  const deletedCount = deleted.length;
+
+  if (deletedCount === 0) {
     logger.info("No orphaned groups found");
-    return 0;
+  } else {
+    logger.info("Orphaned group cleanup completed", { deletedCount });
   }
 
-  for (const group of orphanedGroups) {
-    await db
-      .delete(errorGroups)
-      .where(eq(errorGroups.fingerprint, group.fingerprint));
-  }
-
-  logger.info("Orphaned group cleanup completed", { deletedCount: orphanedGroups.length });
-  return orphanedGroups.length;
+  return deletedCount;
 }
 
 export async function cleanupOldNotifications(retentionDays: number = DEFAULT_NOTIFICATION_RETENTION_DAYS): Promise<number> {

@@ -7,7 +7,7 @@ import type { Context } from "hono";
 import { z } from "zod";
 import { createHash } from "crypto";
 import logger from "../../logger";
-import { canAcceptEvent } from "../../services/quotas";
+import { canAcceptEvent, incrementQuotaCache } from "../../services/quotas";
 import { getProjectPlan } from "../../services/subscriptions";
 import { eventQueue } from "../../queue/queues";
 import { isRedisAvailable, redis } from "../../queue/connection";
@@ -167,6 +167,11 @@ export const submit = async (c: Context) => {
     logger.debug("Event queued", {
       projectId,
       level: input.level,
+    });
+
+    // Increment cached quota counter (fire-and-forget, non-blocking)
+    incrementQuotaCache(projectId).catch(() => {
+      // Quota cache increment failure is non-critical
     });
 
     // Respond immediately with 202 Accepted

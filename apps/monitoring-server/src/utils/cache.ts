@@ -47,11 +47,23 @@ export const cache = {
   },
 
   /**
-   * Delete keys matching pattern
+   * Delete keys matching pattern (SCAN-based, non-blocking)
    */
   async deletePattern(pattern: string): Promise<void> {
     try {
-      const keys = await redis.keys(pattern);
+      const keys: string[] = [];
+      const stream = redis.scanStream({ match: pattern, count: 100 });
+
+      await new Promise<void>((resolve, reject) => {
+        stream.on("data", (batch: string[]) => {
+          for (const key of batch) {
+            keys.push(key);
+          }
+        });
+        stream.on("end", resolve);
+        stream.on("error", reject);
+      });
+
       if (keys.length > 0) {
         await redis.del(...keys);
       }

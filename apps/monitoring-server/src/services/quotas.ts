@@ -1,9 +1,16 @@
 import { db } from "../db/connection";
 import { errorEvents, projects } from "../db/schema";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, inArray, sql } from "drizzle-orm";
 import logger from "../logger";
+import { redis } from "../queue/connection";
 
 import type { QuotaStatus, PlanType } from "../types/services";
+
+const QUOTA_CACHE_TTL = 60; // seconds
+
+function quotaCacheKey(projectId: string): string {
+  return `quota:events:${projectId}`;
+}
 // Default quotas per plan
 export const PLAN_QUOTAS = {
   free: {
@@ -45,9 +52,20 @@ function getMonthStart(): Date {
 }
 
 /**
- * Get current month's event count for a project
+ * Get current month's event count for a project (Redis-cached, TTL 60s)
  */
 export async function getMonthlyEventCount(projectId: string): Promise<number> {
+  const cacheKey = quotaCacheKey(projectId);
+
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached !== null) {
+      return parseInt(cached, 10);
+    }
+  } catch (err) {
+    logger.warn("Quota cache read failed, falling back to DB", { projectId, error: err });
+  }
+
   const monthStart = getMonthStart();
 
   const result = (await db
@@ -60,7 +78,32 @@ export async function getMonthlyEventCount(projectId: string): Promise<number> {
       )
     ))[0];
 
-  return result?.count || 0;
+  const count = result?.count || 0;
+
+  try {
+    await redis.setex(cacheKey, QUOTA_CACHE_TTL, String(count));
+  } catch (err) {
+    logger.warn("Quota cache write failed", { projectId, error: err });
+  }
+
+  return count;
+}
+
+/**
+ * Increment cached quota counter after accepting an event.
+ * No-op if the key doesn't exist (will be refreshed on next read).
+ */
+export async function incrementQuotaCache(projectId: string): Promise<void> {
+  const cacheKey = quotaCacheKey(projectId);
+  try {
+    // INCR only works if key already exists; if missing, the next read will repopulate from DB
+    const exists = await redis.exists(cacheKey);
+    if (exists) {
+      await redis.incr(cacheKey);
+    }
+  } catch (err) {
+    logger.warn("Quota cache increment failed", { projectId, error: err });
+  }
 }
 
 /**
@@ -141,17 +184,39 @@ export async function getOrganizationQuotaUsage(
     .from(projects)
     .where(eq(projects.organizationId, organizationId));
 
+  if (orgProjects.length === 0) {
+    return { totalUsed: 0, projectUsage: [] };
+  }
+
+  // Single GROUP BY query instead of N sequential COUNT queries
+  const projectIds = orgProjects.map((p) => p.id);
+  const counts = await db
+    .select({
+      projectId: errorEvents.projectId,
+      count: sql<number>`count(*)`,
+    })
+    .from(errorEvents)
+    .where(
+      and(
+        inArray(errorEvents.projectId, projectIds),
+        gte(errorEvents.createdAt, monthStart)
+      )
+    )
+    .groupBy(errorEvents.projectId);
+
+  const countMap = new Map(counts.map((row) => [row.projectId, row.count]));
+
   const projectUsage: Array<{ projectId: string; projectName: string; used: number }> = [];
   let totalUsed = 0;
 
   for (const project of orgProjects) {
-    const count = await getMonthlyEventCount(project.id);
+    const used = countMap.get(project.id) ?? 0;
     projectUsage.push({
       projectId: project.id,
       projectName: project.name,
-      used: count,
+      used,
     });
-    totalUsed += count;
+    totalUsed += used;
   }
 
   return { totalUsed, projectUsage };
