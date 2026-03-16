@@ -1,9 +1,0 @@
-error_monitoring:
-  enabled: true
-  endpoint: 'http://localhost:3333'
-  api_key: 'ew_live_T4cBfRJ6oGvQi5uXBfcMp9OayyZF0dHF'
-  # environment: auto-detected from APP_ENV (dev, prod, test)
-  release: '1.0.0-demo'  # Release version for error tracking
-  replay:
-    enabled: true
-    sample_rate: 1.0  # 100% for testing

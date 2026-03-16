@@ -1,32 +1,15 @@
-import { createApp } from 'vue'
-import { init, createPlugin } from '@errorwatch/sdk/vue'
-import App from './App.vue'
+import { createApp } from "vue";
+import { init } from "@errorwatch/sdk";
+import { createPlugin } from "@errorwatch/sdk/vue";
+import App from "./App.vue";
 
-// Initialize ErrorWatch SDK
+// Initialize ErrorWatch
 init({
-  dsn: 'http://localhost:3333',
-  apiKey: import.meta.env.VITE_API_KEY || 'ew_live_YOUR_KEY',
-  environment: 'development',
-  replay: {
-    enabled: true,
-    replaysOnErrorSampleRate: 1.0,
-  },
-  transport: {
-    maxRetries: 3,
-    onError: (error) => {
-      console.log('%c SDK Error ', 'background: red; color: white', error.code, error.message)
-      if (error.code === 'INGESTION_DISABLED') {
-        alert('Error monitoring is disabled for this project!')
-      }
-    },
-    onSuccess: () => {
-      console.log('%c Error sent ', 'background: green; color: white')
-    }
-  }
-})
+  dsn: import.meta.env.VITE_ERRORWATCH_DSN || "http://localhost:3333",
+  apiKey: import.meta.env.VITE_ERRORWATCH_API_KEY || "ew_test_xxx",
+  debug: true,
+});
 
-console.log('ErrorWatch SDK initialized')
-
-const app = createApp(App)
-app.use(createPlugin())
-app.mount('#app')
+const app = createApp(App);
+app.use(createPlugin());
+app.mount("#app");

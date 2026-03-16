@@ -319,7 +319,7 @@ export const projectSettings = pgTable("project_settings", {
   autoResolve: boolean("auto_resolve").notNull().default(true),
   autoResolveDays: integer("auto_resolve_days").notNull().default(14),
   // Sample rate (0.0 to 1.0, 1.0 = 100%)
-  sampleRate: text("sample_rate").notNull().default("1.0"),
+  sampleRate: real("sample_rate").notNull().default(1.0),
   // Event ingestion toggle - when false, API returns 403 for all events
   eventsEnabled: boolean("events_enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
@@ -432,8 +432,8 @@ export const sessionEvents = pgTable("session_events", {
 }, (table) => ({
   sessionTimestampIdx: index("idx_session_events_session").on(table.sessionId, table.timestamp),
   errorEventIdx: index("idx_session_events_error").on(table.errorEventId),
-  // Dedup: prevent duplicate session events (same session + timestamp)
-  sessionDedupIdx: uniqueIndex("idx_session_events_dedup").on(table.sessionId, table.timestamp),
+  // Dedup: prevent duplicate session events (same session + type + timestamp)
+  sessionDedupIdx: uniqueIndex("idx_session_events_dedup").on(table.sessionId, table.type, table.timestamp),
 }));
 
 // ============================================

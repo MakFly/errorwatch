@@ -4,8 +4,6 @@
 # ===========================================
 # Published host ports can be customized with DOCKER_POSTGRES_PORT / DOCKER_REDIS_PORT.
 
-version: "3.9"
-
 services:
   # ===========================================
   # PostgreSQL Database

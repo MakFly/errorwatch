@@ -1,121 +1,140 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { fetchUsers, triggerApiError } from './api'
+import { ref } from "vue";
+import { captureException, captureMessage, addBreadcrumb } from "@errorwatch/sdk";
+import { useErrorMonitoring } from "@errorwatch/sdk/vue";
 
-interface User {
-  id: number
-  name: string
-  email: string
+const { captureException: monitoringCaptureException } = useErrorMonitoring();
+
+const lastAction = ref<string>("");
+const errorCount = ref<number>(0);
+
+function throwVueError(): void {
+  lastAction.value = "Throwing Vue component error...";
+  // This error will be caught by the Vue error handler set up in createPlugin()
+  throw new Error("Test Vue component error — caught by ErrorWatch plugin");
 }
 
-const users = ref<User[]>([])
-const loading = ref(false)
-const status = ref('')
-
-async function handleFetchUsers() {
-  loading.value = true
-  status.value = 'Fetching users...'
+function captureManualException(): void {
   try {
-    users.value = await fetchUsers()
-    status.value = `Fetched ${users.value.length} users`
+    throw new Error("Manual exception captured via useErrorMonitoring()");
   } catch (e) {
-    status.value = `Error: ${e instanceof Error ? e.message : 'Unknown'}`
-  } finally {
-    loading.value = false
+    monitoringCaptureException(e, {
+      extra: { source: "manual-button", timestamp: Date.now() },
+    });
+    errorCount.value++;
+    lastAction.value = `captureException() called (total: ${errorCount.value})`;
   }
 }
 
-function handleTriggerError() {
-  status.value = 'Triggering JS error...'
-  throw new Error('Manual error triggered from Vue app!')
+function captureTestMessage(): void {
+  captureMessage("User triggered a test message from Vue example", {
+    level: "info",
+    extra: { component: "App.vue", action: "captureMessage-button" },
+  });
+  lastAction.value = 'captureMessage() — "User triggered a test message"';
 }
 
-async function handleApiError() {
-  status.value = 'Triggering API error...'
+function addTestBreadcrumb(): void {
+  addBreadcrumb({
+    category: "user",
+    message: "User clicked the add-breadcrumb button",
+    level: "info",
+    data: { component: "App.vue" },
+  });
+  lastAction.value = 'addBreadcrumb() — category: "user"';
+}
+
+function captureSdkException(): void {
   try {
-    await triggerApiError()
+    const obj = null as unknown as { value: string };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _ = obj.value; // Will throw TypeError
   } catch (e) {
-    status.value = `API Error caught: ${e instanceof Error ? e.message : 'Unknown'}`
+    captureException(e, {
+      extra: { source: "sdk-direct", note: "Direct import from @errorwatch/sdk" },
+    });
+    errorCount.value++;
+    lastAction.value = `captureException() via @errorwatch/sdk (total: ${errorCount.value})`;
   }
-}
-
-function handleUnhandledRejection() {
-  status.value = 'Triggering unhandled promise rejection...'
-  Promise.reject(new Error('Unhandled promise rejection!'))
 }
 </script>
 
 <template>
-  <div style="padding: 20px; max-width: 800px; margin: 0 auto">
-    <h1>ErrorWatch Vue Test</h1>
-    <p style="color: #666">
-      Test the SDK with JSONPlaceholder API calls and manual errors.
-    </p>
-
-    <div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px">
-      <h3>Actions</h3>
-      <div style="display: flex; gap: 10px; flex-wrap: wrap">
-        <button
-          @click="handleFetchUsers"
-          :disabled="loading"
-          style="background: #42b883; color: white"
-        >
-          {{ loading ? 'Loading...' : 'Fetch Users (JSONPlaceholder)' }}
-        </button>
-        <button
-          @click="handleTriggerError"
-          style="background: #e00; color: white"
-        >
-          Trigger JS Error
-        </button>
-        <button
-          @click="handleApiError"
-          style="background: #f60; color: white"
-        >
-          Trigger API Error (404)
-        </button>
-        <button
-          @click="handleUnhandledRejection"
-          style="background: #909; color: white"
-        >
-          Unhandled Promise Rejection
-        </button>
-      </div>
-
-      <p
-        v-if="status"
-        style="margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-family: monospace; font-size: 13px"
-      >
-        {{ status }}
+  <div style="font-family: system-ui, sans-serif; max-width: 640px; margin: 48px auto; padding: 0 24px;">
+    <header style="margin-bottom: 40px;">
+      <h1 style="font-size: 1.75rem; font-weight: 700; margin: 0 0 8px;">
+        ErrorWatch — Vue + Vite Example
+      </h1>
+      <p style="color: #666; margin: 0;">
+        Demonstrates the ErrorWatch SDK integration with Vue 3.
+        Open your browser console and the ErrorWatch dashboard to see events.
       </p>
-    </div>
+    </header>
 
-    <div
-      v-if="users.length"
-      style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1)"
+    <section style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;">
+      <button
+        style="padding: 10px 16px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; text-align: left;"
+        @click="throwVueError"
+      >
+        Throw Vue error
+        <span style="display: block; font-size: 0.75rem; opacity: 0.85;">
+          Caught by Vue errorHandler (createPlugin)
+        </span>
+      </button>
+
+      <button
+        style="padding: 10px 16px; background: #ea580c; color: white; border: none; border-radius: 6px; cursor: pointer; text-align: left;"
+        @click="captureManualException"
+      >
+        captureException() via useErrorMonitoring()
+        <span style="display: block; font-size: 0.75rem; opacity: 0.85;">
+          Uses the composable from @errorwatch/sdk/vue
+        </span>
+      </button>
+
+      <button
+        style="padding: 10px 16px; background: #7c3aed; color: white; border: none; border-radius: 6px; cursor: pointer; text-align: left;"
+        @click="captureSdkException"
+      >
+        captureException() via @errorwatch/sdk
+        <span style="display: block; font-size: 0.75rem; opacity: 0.85;">
+          Direct import — triggers a TypeError internally
+        </span>
+      </button>
+
+      <button
+        style="padding: 10px 16px; background: #0891b2; color: white; border: none; border-radius: 6px; cursor: pointer; text-align: left;"
+        @click="captureTestMessage"
+      >
+        captureMessage()
+        <span style="display: block; font-size: 0.75rem; opacity: 0.85;">
+          Sends an info-level message event
+        </span>
+      </button>
+
+      <button
+        style="padding: 10px 16px; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer; text-align: left;"
+        @click="addTestBreadcrumb"
+      >
+        addBreadcrumb()
+        <span style="display: block; font-size: 0.75rem; opacity: 0.85;">
+          Adds a breadcrumb attached to the next event
+        </span>
+      </button>
+    </section>
+
+    <section
+      v-if="lastAction"
+      style="padding: 12px 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;"
     >
-      <h3>Users from JSONPlaceholder</h3>
-      <ul style="list-style: none; padding: 0">
-        <li
-          v-for="u in users.slice(0, 5)"
-          :key="u.id"
-          style="padding: 8px 0; border-bottom: 1px solid #eee"
-        >
-          <strong>{{ u.name }}</strong>
-          <br />
-          <span style="color: #666; font-size: 13px">{{ u.email }}</span>
-        </li>
-      </ul>
-    </div>
+      <p style="margin: 0; font-size: 0.875rem; color: #166534;">
+        <strong>Last action:</strong> {{ lastAction }}
+      </p>
+    </section>
 
-    <div style="margin-top: 30px; padding: 15px; background: #fffde7; border-radius: 8px; font-size: 13px">
-      <strong>Instructions:</strong>
-      <ol style="margin: 10px 0; padding-left: 20px">
-        <li>Open browser DevTools (F12) to see SDK logs</li>
-        <li>Click buttons to trigger errors</li>
-        <li>Go to Dashboard &rarr; Settings &rarr; Data &rarr; Disable "Event Ingestion"</li>
-        <li>Trigger an error again - you should see "INGESTION_DISABLED" in console</li>
-      </ol>
-    </div>
+    <footer style="margin-top: 40px; font-size: 0.75rem; color: #999;">
+      SDK initialized with
+      <code>debug: true</code> — check the browser console for SDK logs.
+    </footer>
   </div>
 </template>

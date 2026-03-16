@@ -1,145 +1,137 @@
-import { useState } from 'react'
-import { fetchUsers, triggerApiError } from './api'
+import { useState } from "react";
+import { captureException, captureMessage, addBreadcrumb } from "@errorwatch/sdk";
+import { useErrorMonitoring } from "@errorwatch/sdk/react";
 
-interface User {
-  id: number
-  name: string
-  email: string
+// A child component that can throw to demonstrate ErrorBoundary
+function BrokenComponent() {
+  throw new Error("Test error thrown by BrokenComponent");
 }
 
 export default function App() {
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState<string>('')
+  const [throwError, setThrowError] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
+  const { captureException: hookCaptureException } = useErrorMonitoring();
 
-  const handleFetchUsers = async () => {
-    setLoading(true)
-    setStatus('Fetching users...')
+  function appendLog(message: string) {
+    setLog((prev) => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev]);
+  }
+
+  function handleThrowBoundaryError() {
+    setThrowError(true);
+  }
+
+  function handleCaptureException() {
     try {
-      const data = await fetchUsers()
-      setUsers(data)
-      setStatus(`Fetched ${data.length} users`)
+      throw new Error("Manual test exception from captureException()");
     } catch (e) {
-      setStatus(`Error: ${e instanceof Error ? e.message : 'Unknown'}`)
-    } finally {
-      setLoading(false)
+      captureException(e);
+      appendLog("captureException() called — check ErrorWatch dashboard");
     }
   }
 
-  const handleTriggerError = () => {
-    setStatus('Triggering JS error...')
-    throw new Error('Manual error triggered from React app!')
+  function handleCaptureMessage() {
+    captureMessage("Hello from ErrorWatch React example", { level: "info" });
+    appendLog("captureMessage() called — check ErrorWatch dashboard");
   }
 
-  const handleApiError = async () => {
-    setStatus('Triggering API error...')
-    try {
-      await triggerApiError()
-    } catch (e) {
-      setStatus(`API Error caught: ${e instanceof Error ? e.message : 'Unknown'}`)
-    }
+  function handleAddBreadcrumb() {
+    addBreadcrumb({
+      category: "ui",
+      message: "User clicked the Add Breadcrumb button",
+      level: "info",
+    });
+    appendLog("addBreadcrumb() called — breadcrumb added to next event");
   }
 
-  const handleUnhandledRejection = () => {
-    setStatus('Triggering unhandled promise rejection...')
-    Promise.reject(new Error('Unhandled promise rejection!'))
+  function handleHookCapture() {
+    hookCaptureException(new Error("Exception captured via useErrorMonitoring hook"));
+    appendLog("useErrorMonitoring hook captureException() called");
+  }
+
+  if (throwError) {
+    // Renders BrokenComponent — the ErrorBoundary in main.tsx will catch this
+    return <BrokenComponent />;
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 800, margin: '0 auto' }}>
-      <h1>ErrorWatch React Test</h1>
-      <p style={{ color: '#666' }}>
-        Test the SDK with JSONPlaceholder API calls and manual errors.
+    <div style={{ fontFamily: "sans-serif", maxWidth: 600, margin: "40px auto", padding: "0 16px" }}>
+      <h1 style={{ fontSize: 24, marginBottom: 8 }}>ErrorWatch — React + Vite Example</h1>
+      <p style={{ color: "#666", marginBottom: 32 }}>
+        Use the buttons below to test SDK features. Open the ErrorWatch dashboard to see captured events.
       </p>
 
-      <div style={{
-        background: '#fff',
-        padding: 20,
-        borderRadius: 8,
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: 20
-      }}>
-        <h3>Actions</h3>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            onClick={handleFetchUsers}
-            disabled={loading}
-            style={{ background: '#0070f3', color: 'white' }}
-          >
-            {loading ? 'Loading...' : 'Fetch Users (JSONPlaceholder)'}
-          </button>
-          <button
-            onClick={handleTriggerError}
-            style={{ background: '#e00', color: 'white' }}
-          >
-            Trigger JS Error
-          </button>
-          <button
-            onClick={handleApiError}
-            style={{ background: '#f60', color: 'white' }}
-          >
-            Trigger API Error (404)
-          </button>
-          <button
-            onClick={handleUnhandledRejection}
-            style={{ background: '#909', color: 'white' }}
-          >
-            Unhandled Promise Rejection
-          </button>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <button
+          onClick={handleThrowBoundaryError}
+          style={btnStyle("#e53e3e")}
+        >
+          Throw Error (caught by ErrorBoundary)
+        </button>
 
-        {status && (
-          <p style={{
-            marginTop: 15,
-            padding: 10,
-            background: '#f0f0f0',
-            borderRadius: 4,
-            fontFamily: 'monospace',
-            fontSize: 13
-          }}>
-            {status}
-          </p>
-        )}
+        <button
+          onClick={handleCaptureException}
+          style={btnStyle("#dd6b20")}
+        >
+          captureException() — manual exception capture
+        </button>
+
+        <button
+          onClick={handleCaptureMessage}
+          style={btnStyle("#3182ce")}
+        >
+          captureMessage() — send info message
+        </button>
+
+        <button
+          onClick={handleAddBreadcrumb}
+          style={btnStyle("#38a169")}
+        >
+          addBreadcrumb() — add UI breadcrumb
+        </button>
+
+        <button
+          onClick={handleHookCapture}
+          style={btnStyle("#805ad5")}
+        >
+          useErrorMonitoring hook — captureException
+        </button>
       </div>
 
-      {users.length > 0 && (
-        <div style={{
-          background: '#fff',
-          padding: 20,
-          borderRadius: 8,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}>
-          <h3>Users from JSONPlaceholder</h3>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {users.slice(0, 5).map((u) => (
-              <li key={u.id} style={{
-                padding: '8px 0',
-                borderBottom: '1px solid #eee'
-              }}>
-                <strong>{u.name}</strong>
-                <br />
-                <span style={{ color: '#666', fontSize: 13 }}>{u.email}</span>
+      {log.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Activity log</h2>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {log.map((entry, i) => (
+              <li
+                key={i}
+                style={{
+                  padding: "6px 10px",
+                  background: i % 2 === 0 ? "#f7fafc" : "#fff",
+                  borderLeft: "3px solid #3182ce",
+                  marginBottom: 4,
+                  fontSize: 13,
+                  fontFamily: "monospace",
+                }}
+              >
+                {entry}
               </li>
             ))}
           </ul>
         </div>
       )}
-
-      <div style={{
-        marginTop: 30,
-        padding: 15,
-        background: '#fffde7',
-        borderRadius: 8,
-        fontSize: 13
-      }}>
-        <strong>Instructions:</strong>
-        <ol style={{ margin: '10px 0', paddingLeft: 20 }}>
-          <li>Open browser DevTools (F12) to see SDK logs</li>
-          <li>Click buttons to trigger errors</li>
-          <li>Go to Dashboard &rarr; Settings &rarr; Data &rarr; Disable "Event Ingestion"</li>
-          <li>Trigger an error again - you should see "INGESTION_DISABLED" in console</li>
-        </ol>
-      </div>
     </div>
   );
+}
+
+function btnStyle(color: string): React.CSSProperties {
+  return {
+    padding: "10px 16px",
+    background: color,
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 14,
+    textAlign: "left",
+  };
 }

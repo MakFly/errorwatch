@@ -1,30 +1,23 @@
-import { init } from '@errorwatch/sdk/react'
-import { createRoot } from 'react-dom/client'
-import App from './App'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { init } from "@errorwatch/sdk";
+import { createErrorBoundary } from "@errorwatch/sdk/react";
+import App from "./App";
 
-// Initialize ErrorWatch SDK with transport config
+// Initialize ErrorWatch
 init({
-  dsn: 'http://localhost:3333',
-  apiKey: import.meta.env.VITE_API_KEY || 'ew_live_YOUR_KEY',
-  environment: 'development',
-  replay: {
-    enabled: true,
-    replaysOnErrorSampleRate: 1.0,
-  },
-  transport: {
-    maxRetries: 3,
-    onError: (error) => {
-      console.log('%c SDK Error ', 'background: red; color: white', error.code, error.message)
-      if (error.code === 'INGESTION_DISABLED') {
-        alert('Error monitoring is disabled for this project!')
-      }
-    },
-    onSuccess: () => {
-      console.log('%c Error sent ', 'background: green; color: white')
-    }
-  }
-})
+  dsn: import.meta.env.VITE_ERRORWATCH_DSN || "http://localhost:3333",
+  apiKey: import.meta.env.VITE_ERRORWATCH_API_KEY || "ew_test_xxx",
+  debug: true,
+});
 
-console.log('ErrorWatch SDK initialized')
+// Create ErrorBoundary with React
+const ErrorBoundary = createErrorBoundary(React);
 
-createRoot(document.getElementById('root')!).render(<App />)
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <ErrorBoundary fallback={<div>Something went wrong</div>}>
+      <App />
+    </ErrorBoundary>
+  </React.StrictMode>
+);

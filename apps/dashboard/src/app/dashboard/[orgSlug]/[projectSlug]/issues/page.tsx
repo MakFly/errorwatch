@@ -16,7 +16,7 @@ import type { ErrorLevel } from "@/server/api";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { detectEventSource } from "@/lib/event-source";
-import { useDebounce } from "@/lib/hooks/useDebounce";
+import { useDebounce } from "@/hooks/useDebounce";
 import { normalizeGroups } from "@/lib/utils/normalize-groups";
 import { Download } from "lucide-react";
 import {
