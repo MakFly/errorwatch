@@ -1,7 +1,7 @@
 {
   "name": "errorwatch",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/*"],
   "scripts": {
     "dev": "turbo run dev:standalone --filter=@apps/api --filter=@apps/web",
     "build": "turbo run build",

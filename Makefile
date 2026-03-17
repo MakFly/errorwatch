@@ -29,8 +29,7 @@ help: ## Show this help
 			/^infra-|^db-|^redis-/ {infra=infra"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
 			/^prod-/ {prod=prod"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
 			/^example-/ {ex=ex"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
-			/^metrics-/ {met=met"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
-			END {print "\n$(YELLOW)DEVELOPMENT:$(RESET)" dev "\n\n$(YELLOW)INFRASTRUCTURE:$(RESET)" infra "\n\n$(YELLOW)SDK METRICS:$(RESET)" met "\n\n$(YELLOW)EXAMPLES:$(RESET)" ex "\n\n$(YELLOW)PRODUCTION:$(RESET)" prod}'
+			END {print "\n$(YELLOW)DEVELOPMENT:$(RESET)" dev "\n\n$(YELLOW)INFRASTRUCTURE:$(RESET)" infra "\n\n$(YELLOW)EXAMPLES:$(RESET)" ex "\n\n$(YELLOW)PRODUCTION:$(RESET)" prod}'
 
 # =============================================================================
 # DEVELOPMENT
@@ -182,38 +181,6 @@ example-laravel-log: ## Write a test line via Laravel logger so ErrorWatch inges
 	@cd examples/laravel-api && php artisan tinker --execute="logger()->warning('makefile test log', ['source' => 'makefile']);"
 
 example-laravel: example-laravel-setup example-laravel-start ## Setup + start Laravel example
-
-# =============================================================================
-# SDK METRICS AGENT
-# =============================================================================
-
-METRICS_DIR := packages/sdk-metrics
-
-metrics-build: ## Build the metrics agent binary
-	@echo "$(GREEN)Building sdk-metrics...$(RESET)"
-	@cd $(METRICS_DIR) && go build -o sdk-metrics .
-	@echo "$(GREEN)Binary ready: $(METRICS_DIR)/sdk-metrics$(RESET)"
-
-metrics-init: ## Initialize metrics agent config (creates sdk-metrics.yaml)
-	@cd $(METRICS_DIR) && ./sdk-metrics --init
-	@echo "$(YELLOW)Edit $(METRICS_DIR)/sdk-metrics.yaml with your API key$(RESET)"
-
-metrics-start: ## Start the metrics agent (foreground)
-	@echo "$(GREEN)Starting metrics agent...$(RESET)"
-	@cd $(METRICS_DIR) && ./sdk-metrics --config sdk-metrics.yaml
-
-metrics-stop: ## Stop the metrics agent
-	@echo "$(YELLOW)Stopping metrics agent...$(RESET)"
-	@pkill -f "sdk-metrics" 2>/dev/null || echo "$(YELLOW)Agent not running$(RESET)"
-
-metrics-status: ## Show current metrics agent config
-	@cd $(METRICS_DIR) && ./sdk-metrics --config-show 2>/dev/null || echo "$(RED)Agent not built. Run: make metrics-build$(RESET)"
-
-metrics-remove: ## Remove the metrics agent completely (binary + config + repo)
-	@echo "$(RED)Removing sdk-metrics agent...$(RESET)"
-	@pkill -f "sdk-metrics" 2>/dev/null || true
-	@rm -rf $(METRICS_DIR)
-	@echo "$(GREEN)sdk-metrics removed from packages/$(RESET)"
 
 example-laravel-test: ## Send test errors to ErrorWatch from Laravel
 	@echo "$(CYAN)Sending test errors...$(RESET)"
