@@ -41,3 +41,8 @@ dist/
 
 # Test coverage
 coverage/
+
+# SDK packages (separate repos via subtree split)
+# See: github.com/MakFly/errorwatch-sdk-symfony
+# See: github.com/MakFly/errorwatch-sdk-laravel
+packages/

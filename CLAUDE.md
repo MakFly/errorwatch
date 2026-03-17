@@ -23,12 +23,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |-----------|----------|------|-------|
 | API Server | `apps/api/` | 3333 | Hono.js 4, Drizzle ORM, PostgreSQL, BetterAuth |
 | Web Dashboard | `apps/web/` | 4001 | Next.js 16, tRPC 11, shadcn/ui, TailwindCSS |
-| SDK Universal | `packages/sdk/` | - | TypeScript |
-| SDK React | `packages/sdk/` (via exports) | - | React 18+ / 19+ |
-| SDK Vue | `packages/sdk/` (via exports) | - | Vue 3+ |
-| Shared Types | `packages/shared/` | - | TypeScript, Zod |
-| Symfony Bundle | `packages/sdk-symfony/` | - | PHP 8.1+, Symfony 6.0+ ([standalone repo](https://github.com/MakFly/errorwatch-sdk-symfony)) |
-| Laravel SDK | `packages/sdk-laravel/` | - | PHP 8.1+, Laravel 10/11/12 ([standalone repo](https://github.com/MakFly/errorwatch-sdk-laravel)) |
+| Symfony Bundle | [standalone repo](https://github.com/MakFly/errorwatch-sdk-symfony) | - | PHP 8.1+, Symfony 6.0+ |
+| Laravel SDK | [standalone repo](https://github.com/MakFly/errorwatch-sdk-laravel) | - | PHP 8.1+, Laravel 10/11/12 |
+
+> **Note:** `packages/` is gitignored. SDK packages are maintained in their own standalone repos. Files may exist locally for development but are not tracked in this monorepo.
 
 ### Local URLs
 
@@ -42,14 +40,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Structure
 
 ```
-sentry-like/
+errorwatch/
 ├── apps/
 │   ├── web/                       # Next.js 16 frontend
 │   └── api/                       # Hono.js API server + BullMQ workers
-├── packages/
-│   ├── sdk/                       # Universal SDK (Browser + React + Vue)
-│   ├── shared/                    # Shared types & Zod schemas
-│   └── sdk-symfony/               # PHP Symfony Bundle
+├── packages/                      # ⚠️ gitignored — SDKs live in standalone repos
 ├── examples/                      # Integration examples
 │   ├── react-vite/
 │   ├── vue-vite/
@@ -164,161 +159,27 @@ bun run dev:standalone  # Port 4001
 
 ---
 
-## Shared Package (`packages/shared/`)
+## SDK Packages (standalone repos)
 
-### Package
+`packages/` is **gitignored** — SDK packages are maintained in their own repositories:
 
-**`@errorwatch/shared`** - Shared types, schemas and utilities
+| SDK | Repo | Package |
+|-----|------|---------|
+| Symfony Bundle | [errorwatch-sdk-symfony](https://github.com/MakFly/errorwatch-sdk-symfony) | `errorwatch/sdk-symfony` (Packagist) |
+| Laravel SDK | [errorwatch-sdk-laravel](https://github.com/MakFly/errorwatch-sdk-laravel) | `errorwatch/sdk-laravel` (Packagist) |
 
-### Exports
+### Subtree remotes
 
-- Common TypeScript interfaces (User, ErrorEvent, Breadcrumb, etc.)
-- Zod schemas for validation
-- Queue job types
-
----
-
-## Universal SDK (`packages/sdk/`)
-
-### Package
-
-**`@errorwatch/sdk`** - Universal error monitoring SDK
-
-| Export | Framework |
-|--------|-----------|
-| `@errorwatch/sdk` | Browser (vanilla JS) |
-| `@errorwatch/sdk/react` | React 18+ / 19+ |
-| `@errorwatch/sdk/vue` | Vue 3+ |
-
-### Features
-- Browser SDK with rrweb session replay
-- React ErrorBoundary component + hooks
-- Vue plugin + composables
-- TypeScript support
-- Zod schema validation
-
-### Installation
+Remotes `sdk-symfony` and `sdk-laravel` are configured for subtree operations:
 
 ```bash
-# Browser / Vanilla
-npm install @errorwatch/sdk
-
-# React
-npm install @errorwatch/sdk
-
-# Vue
-npm install @errorwatch/sdk
-```
-
----
-
-## Symfony Bundle (`packages/sdk-symfony/`)
-
-- **Package**: `errorwatch/sdk-symfony`
-- **Namespace**: `ErrorWatch\Symfony\`
-- **Standalone repo**: https://github.com/MakFly/errorwatch-sdk-symfony (public, for Packagist)
-- **Current version**: `v0.1.0`
-- Captures: exceptions, console commands, Messenger failures, security events, deprecations, outgoing HTTP, Monolog
-- APM: request tracing, Doctrine query spans, HTTP client spans
-- Breadcrumbs: automatic for HTTP requests, SQL queries, console commands, security events
-- Session replay (Twig), user context
-
-### Versioning
-
-Pre-1.0 semver : `0.MINOR.PATCH`
-- **Patch** (bug fix, small tweak) : `0.1.0` → `0.1.1` → ... → `0.1.9`
-- **Minor** (new feature, breaking change) : `0.1.9` → `0.2.0`
-- Once stable : `1.0.0` then standard semver
-
-### Subtree Split Workflow (release to Packagist)
-
-The SDK source lives in this monorepo at `packages/sdk-symfony/`. To publish a new version:
-
-```bash
-# 1. Commit changes in monorepo as usual
-git add packages/sdk-symfony/ && git commit -m "feat(sdk-symfony): ..."
-
-# 2. Split subtree into release branch
+# Push local changes to standalone repo
 git subtree split --prefix=packages/sdk-symfony -b sdk-symfony-release
-
-# 3. Push to standalone repo
 git push sdk-symfony sdk-symfony-release:main
 
-# 4. Tag and push (increment version following rules above)
-git tag v0.1.X sdk-symfony-release
-git push sdk-symfony v0.1.X
-```
-
-Remote `sdk-symfony` is already configured → `git@github.com:MakFly/errorwatch-sdk-symfony.git`
-
----
-
-## Laravel SDK (`packages/sdk-laravel/`)
-
-- **Package**: `errorwatch/sdk-laravel`
-- **Namespace**: `ErrorWatch\Laravel\`
-- **Standalone repo**: https://github.com/MakFly/errorwatch-sdk-laravel (public, for Packagist)
-- **Current version**: `v0.1.0` (beta)
-- Captures: exceptions, queue job failures, console commands, security events, deprecations, outgoing HTTP, Monolog logs
-- APM: request tracing, Eloquent query spans (with N+1 detection), HTTP client spans
-- Breadcrumbs: automatic for HTTP requests, SQL queries, console commands, security events, queue jobs
-- Session replay (Blade directive), user context
-
-### Versioning
-
-Pre-1.0 semver : `0.MINOR.PATCH`
-- **Patch** (bug fix, small tweak) : `0.1.0` → `0.1.1` → ... → `0.1.9`
-- **Minor** (new feature, breaking change) : `0.1.9` → `0.2.0`
-- Once stable : `1.0.0` then standard semver
-
-### Installation (Beta)
-
-```bash
-# Install beta version
-composer require errorwatch/sdk-laravel:@beta
-
-# Or dev version
-composer require errorwatch/sdk-laravel:dev-main --prefer-dist
-```
-
-### Subtree Split Workflow (release to Packagist)
-
-The SDK source lives in this monorepo at `packages/sdk-laravel/`. To publish a new version:
-
-```bash
-# 1. Commit changes in monorepo as usual
-git add packages/sdk-laravel/ && git commit -m "feat(sdk-laravel): ..."
-
-# 2. Split subtree into release branch
 git subtree split --prefix=packages/sdk-laravel -b sdk-laravel-release
-
-# 3. Push to standalone repo
 git push sdk-laravel sdk-laravel-release:main
-
-# 4. Tag and push (increment version following rules above)
-git tag v0.1.X sdk-laravel-release
-git push sdk-laravel v0.1.X
 ```
-
-Remote `sdk-laravel` is already configured → `git@github.com:MakFly/errorwatch-sdk-laravel.git`
-
-### Features Checklist
-
-| Feature | Status |
-|---------|--------|
-| Exception capture (middleware) | ✅ |
-| Queue job failure tracking | ✅ |
-| Eloquent query tracing | ✅ |
-| N+1 query detection | ✅ |
-| HTTP client tracing | ✅ |
-| Breadcrumbs (auto) | ✅ |
-| User context (auth) | ✅ |
-| Monolog integration | ✅ |
-| Session replay (Blade) | ✅ |
-| Artisan commands | ✅ |
-| Laravel 10 support | ✅ |
-| Laravel 11 support | ✅ |
-| Laravel 12 support | ✅ |
 
 ### Tests
 

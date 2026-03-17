@@ -1,5 +1,0 @@
-services:
-    ErrorWatch\Symfony\Command\SetupCommand:
-        arguments:
-            $projectDir: '%kernel.project_dir%'
-        tags: ['console.command']
