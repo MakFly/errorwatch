@@ -11,7 +11,7 @@ A lightweight, privacy-focused alternative to Sentry. Monitor errors, track perf
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Hono](https://img.shields.io/badge/Hono-4.0-E36002?logo=hono)](https://hono.dev/)
 
-[Dashboard](#dashboard) • [SDKs](#sdks) • [Self-Hosting](#self-hosting) • [Documentation](#documentation)
+[Features](#features) · [Quick Start](#quick-start) · [SDKs](#sdks) · [Self-Hosting](#self-hosting) · [Documentation](#documentation)
 
 </div>
 
@@ -19,90 +19,101 @@ A lightweight, privacy-focused alternative to Sentry. Monitor errors, track perf
 
 ## Features
 
-- **Error Tracking** — Automatic error capture with fingerprinting and grouping
+- **Error Tracking** — Automatic capture with fingerprinting, grouping, and severity levels
 - **Session Replay** — Replay user sessions with rrweb integration
-- **Performance Monitoring** — Track request durations, database queries, and more
+- **Performance Monitoring** — Request durations, database queries, N+1 detection
+- **Infrastructure Monitoring** — CPU, memory, disk, network via Go agent
 - **Multi-tenant** — Organizations, projects, and role-based access control
-- **Real-time Dashboard** — Modern Next.js dashboard with tRPC
-- **Privacy-First** — Self-hosted, your data never leaves your infrastructure
-- **Lightweight SDKs** — JavaScript, React, Vue, Symfony, Laravel
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| **Dashboard** | Next.js 16, tRPC 11, shadcn/ui, TailwindCSS |
-| **API Server** | Hono.js 4, Drizzle ORM, PostgreSQL, Redis, BullMQ |
-| **SDKs** | TypeScript, PHP 8.1+ |
-| **Auth** | BetterAuth |
-
-## Quick Start
-
-### Prerequisites
-
-- Docker & Docker Compose
-- Node.js 20+ / Bun
-- PostgreSQL 16
-- Redis 7
-
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/MakFly/sentry-like.git errorwatch
-cd errorwatch
-bun install
-```
-
-### 2. Start Infrastructure
-
-```bash
-# Start PostgreSQL & Redis
-docker compose up -d
-
-# Optional: custom host ports (avoid conflicts)
-# DOCKER_POSTGRES_PORT=55440 DOCKER_REDIS_PORT=56390 docker compose up -d
-```
-
-### 3. Configure Environment
-
-```bash
-# Monitoring Server
-cp apps/api/.env.example apps/api/.env
-
-# Dashboard
-cp apps/web/.env.example apps/web/.env
-```
-
-### 4. Setup Database
-
-```bash
-cd apps/api
-bunx drizzle-kit push
-```
-
-### 5. Run Development Servers
-
-```bash
-# From project root
-make dev
-
-# Or manually:
-bun run dev  # Starts dashboard (4000) and API (3333) via Turbo
-```
-
-- **Dashboard**: http://localhost:4000
-- **API**: http://localhost:3333
+- **Real-time Dashboard** — Next.js 16 dashboard with tRPC and live SSE updates
+- **Internationalization** — English and French out of the box
+- **Privacy-First** — Self-hosted, your data stays on your infrastructure
+- **Multiple SDKs** — JavaScript, React, Vue, Symfony, Laravel, Go metrics
 
 ## Architecture
 
 ```
 ┌─────────────────┐     ┌───────────────────┐     ┌─────────────┐
-│  Client Apps    │────▶│ Monitoring Server │◀────│  Dashboard  │
-│  (SDKs)         │     │ (Hono + Postgres)  │     │  (Next.js)  │
+│  Client Apps    │────▶│   API Server      │◀────│  Dashboard  │
+│  (SDKs)         │     │ (Hono + PostgreSQL)│     │  (Next.js)  │
 └─────────────────┘     └───────────────────┘     └─────────────┘
        POST /event              ▲                    tRPC + REST
                                 │
+                     ┌──────────┴──────────┐
+                     │  PostgreSQL + Redis  │
+                     └─────────────────────┘
 ```
+
+| Component | Location | Port | Stack |
+|-----------|----------|------|-------|
+| API Server | `apps/api/` | 3333 | Hono.js 4, Drizzle ORM, PostgreSQL 16, Redis 7, BullMQ |
+| Dashboard | `apps/web/` | 4001 | Next.js 16, React 19, tRPC 11, shadcn/ui, TailwindCSS |
+
+## Quick Start
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) & Docker Compose
+- [Bun](https://bun.sh/) 1.x
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/MakFly/errorwatch.git
+cd errorwatch
+make install
+```
+
+### 2. Start Infrastructure
+
+```bash
+make infra-up       # PostgreSQL + Redis via Docker
+make infra-wait     # Wait for healthy containers
+```
+
+### 3. Configure Environment
+
+```bash
+# API — edit with your values
+cp apps/api/.env.example apps/api/.env
+
+# Dashboard
+cp apps/web/.env.local.example apps/web/.env.local
+```
+
+### 4. Setup Database
+
+```bash
+make db-push
+```
+
+### 5. Start Development
+
+```bash
+make dev            # API (3333) + Dashboard (4001)
+```
+
+- **Dashboard**: http://localhost:4001
+- **API**: http://localhost:3333
+
+## Project Structure
+
+```
+errorwatch/
+├── apps/
+│   ├── api/                  # Hono.js API server + BullMQ workers
+│   └── web/                  # Next.js 16 dashboard
+├── deploy/                   # Production deployment (Caddy, PM2, scripts)
+├── examples/
+│   └── laravel-api/          # Laravel integration example
+├── scripts/                  # Release & setup helpers
+├── docker-compose.yml        # Dev infra (PostgreSQL + Redis)
+├── docker-compose.prod.yml   # Full Docker production stack
+├── Dockerfile                # Multi-target (api + web)
+├── Makefile                  # All dev/prod commands
+└── turbo.json                # Turborepo config
+```
+
+> `packages/` is gitignored — SDK packages live in their own standalone repositories.
 
 ## SDKs
 
@@ -116,8 +127,8 @@ npm install @errorwatch/sdk
 import { ErrorWatch } from '@errorwatch/sdk';
 
 ErrorWatch.init({
-  dsn: 'https://your-api.com',
-  apiKey: 'your-project-api-key',
+  dsn: 'https://api.errorwatch.io',
+  apiKey: 'ew_live_your_project_api_key',
 });
 ```
 
@@ -147,12 +158,14 @@ app.use(ErrorWatchPlugin, { dsn: '...', apiKey: '...' });
 composer require errorwatch/sdk-symfony
 ```
 
-```php
-// config/packages/errorwatch.yaml
+```yaml
+# config/packages/errorwatch.yaml
 errorwatch:
-  dsn: 'https://your-api.com'
+  dsn: '%env(ERRORWATCH_DSN)%'
   api_key: '%env(ERRORWATCH_API_KEY)%'
 ```
+
+> Repo: [errorwatch-sdk-symfony](https://github.com/MakFly/errorwatch-sdk-symfony)
 
 ### Laravel
 
@@ -161,304 +174,171 @@ composer require errorwatch/sdk-laravel
 ```
 
 ```php
-// config/errorwatch.php
-return [
-    'dsn' => env('ERRORWATCH_DSN'),
-    'api_key' => env('ERRORWATCH_API_KEY'),
-];
+// .env
+ERRORWATCH_DSN=https://api.errorwatch.io
+ERRORWATCH_API_KEY=ew_live_your_key
 ```
 
-### System Metrics (Go Agent)
+> Repo: [errorwatch-sdk-laravel](https://github.com/MakFly/errorwatch-sdk-laravel)
 
-See [errorwatch-sdk-metrics](https://github.com/MakFly/errorwatch-sdk-metrics) for the system metrics collection agent.
+### Infrastructure Metrics (Go Agent)
+
+Collect CPU, memory, disk, and network metrics from your servers.
 
 ```bash
-# Download binary
-curl -L -o sdk-metrics https://github.com/MakFly/errorwatch-sdk-metrics/releases/latest/download/sdk-metrics
-
-# Or build from source
 git clone https://github.com/MakFly/errorwatch-sdk-metrics.git
 cd errorwatch-sdk-metrics
 go build -o sdk-metrics .
-
-# Run
 ./sdk-metrics --init
 ./sdk-metrics -c sdk-metrics.yaml
 ```
 
+> Repo: [errorwatch-sdk-metrics](https://github.com/MakFly/errorwatch-sdk-metrics)
+
 ## Self-Hosting
 
-### Deployment Model
-
-Recommended production topology:
-
-- **Apps (API + Dashboard)** run natively with **PM2**
-- **PostgreSQL + Redis** run in Docker (`docker-compose.prod.yml`)
-- **Caddy** handles TLS termination and reverse proxy
-
-This is exactly what the deploy scripts automate:
-
-- [deploy/first-init-deploy.sh](./deploy/first-init-deploy.sh)
-- [deploy/deploy.sh](./deploy/deploy.sh)
-- [deploy/ecosystem.config.cjs](./deploy/ecosystem.config.cjs)
-- [deploy/Caddyfile](./deploy/Caddyfile)
-- [deploy/SECURITY-HARDENING-UFW-FAIL2BAN.md](./deploy/SECURITY-HARDENING-UFW-FAIL2BAN.md)
-
-### Security Hardening Guide
-
-For a complete production firewall and SSH protection setup (UFW + Fail2ban + Docker `DOCKER-USER` allowlist enforcement), follow:
-
-- [Security Hardening: UFW + Fail2ban](./deploy/SECURITY-HARDENING-UFW-FAIL2BAN.md)
-
-### Requirements
+### Server Requirements
 
 | Resource | Minimum | Recommended |
 |----------|---------|-------------|
-| RAM | 2GB | 4GB+ |
+| RAM | 2 GB | 4 GB+ |
 | CPU | 2 vCPU | 4 vCPU+ |
-| Storage | 20GB | 50GB+ SSD |
+| Storage | 20 GB | 50 GB+ SSD |
 | OS | Ubuntu 22.04+ | Ubuntu 24.04 LTS |
 
-Required software:
+Required: Docker Engine, Bun 1.x, PM2
 
-- Docker Engine + Docker Compose plugin
-- Bun 1.x
-- PM2
+### Deployment Model
+
+Production topology uses **PM2** for apps and **Docker** for infrastructure:
+
+| Service | Runtime |
+|---------|---------|
+| API Server | PM2 (port 3333) |
+| Dashboard | PM2 (port 4001) |
+| PostgreSQL | Docker |
+| Redis | Docker |
+| Caddy | Docker (TLS + reverse proxy) |
 
 ### Production Setup
 
-1. Clone on your VPS:
-
 ```bash
-git clone https://github.com/MakFly/sentry-like.git /opt/errorwatch
+# 1. Clone on VPS
+git clone https://github.com/MakFly/errorwatch.git /opt/errorwatch
 cd /opt/errorwatch
-```
 
-2. Create production env:
-
-```bash
+# 2. Configure environment
 cp deploy/.env.production.example .env.production
 nano .env.production
-```
 
-3. Generate strong secrets:
-
-```bash
+# 3. Generate secrets
 openssl rand -base64 32   # BETTER_AUTH_SECRET
 openssl rand -base64 24   # POSTGRES_PASSWORD
 openssl rand -base64 24   # API_KEY_HASH_SECRET
-```
 
-4. Configure DNS and firewall:
-
-```bash
-# DOMAIN must resolve to your server IP
-# Open inbound 80/tcp and 443/tcp
-```
-
-5. Run first deployment:
-
-```bash
+# 4. First deployment
 ./deploy/first-init-deploy.sh .env.production
-```
 
-6. For updates:
-
-```bash
+# 5. Subsequent updates
 ./deploy/deploy.sh .env.production
 ```
-
-### Dynamic Docker Ports (Conflict-Free)
-
-To avoid conflicts with local Sentry stacks or existing services, database ports are configurable.
-
-In `.env.production`:
-
-```bash
-DOCKER_POSTGRES_PORT=55432
-DOCKER_REDIS_PORT=56379
-```
-
-You can change them to any free host ports.  
-The deploy script and compose files use these values automatically.
 
 ### Required Environment Variables
 
-Minimum required keys in `.env.production`:
-
 ```bash
-# Public URLs
+# URLs
 DOMAIN=errorwatch.io
-ACME_EMAIL=admin@errorwatch.io
 DASHBOARD_URL=https://errorwatch.io
 API_URL=https://api.errorwatch.io
 BETTER_AUTH_URL=https://api.errorwatch.io
+NEXT_PUBLIC_APP_URL=https://errorwatch.io
+NEXT_PUBLIC_MONITORING_API_URL=https://api.errorwatch.io
 
-# Infra ports
-DOCKER_POSTGRES_PORT=55432
-DOCKER_REDIS_PORT=56379
-CADDY_HTTP_PORT=80
-CADDY_HTTPS_PORT=443
-
-# Caddy Docker upstreams (PM2 on host)
-DASHBOARD_UPSTREAM=host.docker.internal:4001
-API_UPSTREAM=host.docker.internal:3333
-
-# DB
-POSTGRES_DB=errorwatch
-POSTGRES_USER=errorwatch
-POSTGRES_PASSWORD=CHANGE_ME
-DATABASE_URL=postgresql://errorwatch:CHANGE_ME@localhost:55432/errorwatch
-
-# Redis
+# Database
+POSTGRES_PASSWORD=<generated>
+DATABASE_URL=postgresql://errorwatch:<password>@localhost:55432/errorwatch
 REDIS_URL=redis://localhost:56379
 
 # Security
-BETTER_AUTH_SECRET=CHANGE_ME
-ADMIN_API_KEY=ew_admin_CHANGE_ME
-API_KEY_HASH_SECRET=CHANGE_ME
+BETTER_AUTH_SECRET=<generated>
+ADMIN_API_KEY=ew_admin_<generated>
+API_KEY_HASH_SECRET=<generated>
+ACME_EMAIL=admin@errorwatch.io
 ```
+
+Optional: `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `RESEND_API_KEY`, Stripe keys.
 
 ### Health Checks
 
-After deployment:
+```bash
+curl -s http://127.0.0.1:3333/health/live   # API
+curl -s http://127.0.0.1:4001/               # Dashboard
+```
+
+### Operations
 
 ```bash
-curl -I http://127.0.0.1:3333/health/live
-curl -I http://127.0.0.1:4001/
+bunx pm2 list                    # Process status
+bunx pm2 logs                    # Application logs
+bunx pm2 restart all             # Restart apps
+make prod-status                 # Docker infra status
+make prod-logs                   # Docker infra logs
+./deploy/deploy.sh .env.production  # Deploy update
 ```
 
-Expected: `HTTP 200`.
+For the complete VPS deployment guide, see [deploy/README.md](./deploy/README.md).
 
-### Operations (Runbook)
-
-```bash
-# PM2 status/logs
-bunx pm2 list
-bunx pm2 logs
-bunx pm2 restart errorwatch-api
-bunx pm2 restart errorwatch-dashboard
-
-# Infra status/logs
-docker compose --env-file .env.production -f docker-compose.prod.yml ps
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f caddy
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f postgres
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f redis
-
-# Re-deploy after updates
-git pull
-./deploy/deploy.sh .env.production
-```
-
-### Releases (Tags + GitHub Release)
-
-Use the release helper script from a clean `main` branch:
-
-```bash
-# Auto bump from latest semver tag
-./scripts/release.sh --type patch
-
-# Or explicit version
-./scripts/release.sh --version v0.4.1 --notes "Bugfix release"
-```
-
-Dry-run preview:
-
-```bash
-./scripts/release.sh --type minor --dry-run
-```
-
-### Local Self-Hosted (Without Production Proxy)
-
-For local development with conflict-free infra ports:
-
-```bash
-# Optional port overrides
-export DOCKER_POSTGRES_PORT=55432
-export DOCKER_REDIS_PORT=56379
-
-# Start local infra
-docker compose -f docker-compose.dev.yml up -d
-
-# Start apps
-make dev-api        # API on 3333
-make dev-dashboard  # Dashboard on 4001
-```
-
-Set `apps/api/.env` using:
-
-```bash
-DATABASE_URL=postgresql://errorwatch:errorwatch_dev_password@localhost:55432/errorwatch
-REDIS_URL=redis://localhost:56379
-```
-
-### Troubleshooting
-
-- `ECONNREFUSED` to DB/Redis: verify `DOCKER_POSTGRES_PORT` / `DOCKER_REDIS_PORT` and matching `DATABASE_URL` / `REDIS_URL`
-- `502` from Caddy: verify PM2 apps are running on `127.0.0.1:3333` and `127.0.0.1:4001`
-- Migration errors: run `cd apps/api && DATABASE_URL=... bun run db:migrate`
-- App boot failures: inspect `bunx pm2 logs` first, then `docker compose ... logs postgres redis`
-
-For the VPS-focused guide, see [deploy/README.md](./deploy/README.md).
-
-## Project Structure
-
-```
-errorwatch/
-├── apps/
-│   ├── dashboard/           # Next.js 16 frontend
-│   └── monitoring-server/   # Hono.js API server
-├── packages/
-│   ├── sdk/                 # Universal SDK (JS + React + Vue)
-│   ├── shared/              # Shared types & utilities
-│   ├── sdk-symfony/         # PHP Symfony Bundle
-│   └── sdk-laravel/         # PHP Laravel SDK
-├── deploy/                  # Production deployment files
-└── examples/                # Integration examples
-```
+For security hardening (UFW + Fail2ban), see [deploy/SECURITY-HARDENING-UFW-FAIL2BAN.md](./deploy/SECURITY-HARDENING-UFW-FAIL2BAN.md).
 
 ## Development
 
+### Makefile Commands
+
 ```bash
-# Install dependencies
-bun install
+make install        # Install all dependencies
+make dev            # Start API + Dashboard
+make dev-api        # API only (port 3333)
+make dev-web        # Dashboard only (port 4001)
+make stop           # Stop dev processes
+make status         # Check service health
 
-# Start dev servers
-make dev
+make infra-up       # Start PostgreSQL + Redis
+make infra-down     # Stop infrastructure
+make db-push        # Push schema to database
+make db-migrate     # Run migrations
+make db-reset       # Reset database (destructive)
 
-# Run tests
-bun test
+make build          # Build all apps
+make clean          # Clean build artifacts
+```
 
-# Build all packages
-bun run build
+### Running Tests
 
-# Database migrations
-cd apps/api && bunx drizzle-kit push
+```bash
+bun test apps/api/tests     # API tests
+```
+
+### Releases
+
+```bash
+./scripts/release.sh --type patch                    # Auto bump
+./scripts/release.sh --version v1.0.0 --notes "1.0"  # Explicit version
+./scripts/release.sh --type minor --dry-run           # Preview only
 ```
 
 ## CI/CD
 
-GitHub Actions workflows are included:
+GitHub Actions workflows:
 
-- `CI` (`.github/workflows/ci.yml`): lint + build + API tests
-- `Security` (`.github/workflows/security.yml`): secret scan + dependency review
-- `CD Production` (`.github/workflows/cd-production.yml`): deploy to `/opt/errorwatch` via SSH
+| Workflow | File | Trigger |
+|----------|------|---------|
+| CI | `ci.yml` | push to main, PRs |
+| Security | `security.yml` | push to main, PRs |
+| CD Production | `cd-production.yml` | manual dispatch |
 
-### Required GitHub Secrets (for CD)
-
-Set these in repository settings:
-
-- `PROD_HOST` (example: `51.158.55.137`)
-- `PROD_USER` (example: `kaubree`)
-- `PROD_SSH_KEY` (private key for deploy user)
-
-### Recommended Protection
-
-Configure a GitHub Environment named `production` and require manual approval before deployment.
+Required GitHub secrets for CD: `PROD_HOST`, `PROD_USER`, `PROD_SSH_KEY`.
 
 ## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -468,20 +348,16 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- Inspired by [Sentry](https://sentry.io/)
-- Built with [Hono](https://hono.dev/), [Next.js](https://nextjs.org/), and [Drizzle ORM](https://orm.drizzle.team/)
-- Session replay powered by [rrweb](https://www.rrweb.io/)
+Built with [Hono](https://hono.dev/), [Next.js](https://nextjs.org/), [Drizzle ORM](https://orm.drizzle.team/), and [rrweb](https://www.rrweb.io/). Inspired by [Sentry](https://sentry.io/).
 
 ---
 
 <div align="center">
 
-**[⬆ back to top](#errorwatch)**
-
-Made with ❤️ by [MakFly](https://github.com/MakFly)
+Made by [MakFly](https://github.com/MakFly)
 
 </div>
