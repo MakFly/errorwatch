@@ -5,7 +5,6 @@ import { sql } from "drizzle-orm";
 export type DateRange = "1h" | "6h" | "24h" | "7d";
 
 // db.execute returns rows array or { rows: [...] } depending on Drizzle version
-// @ts-expect-error - Drizzle execute return type compatibility
 function extractRows<T>(result: T[] | { rows: T[] }): T[] {
   const raw = (result as { rows?: T[] }).rows ?? result;
   return Array.isArray(raw) ? raw : [];

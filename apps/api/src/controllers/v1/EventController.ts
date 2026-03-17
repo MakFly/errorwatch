@@ -83,7 +83,7 @@ export const submit = async (c: Context<AppEnv>) => {
 
     // Apply server-side sample rate
     if (projectSettings?.sampleRate) {
-      const rate = parseFloat(projectSettings.sampleRate);
+      const rate = typeof projectSettings.sampleRate === "string" ? parseFloat(projectSettings.sampleRate) : projectSettings.sampleRate;
       if (rate < 1.0 && Math.random() >= rate) {
         logger.debug("Event dropped by sample rate", { projectId, sampleRate: rate });
         return c.json({ success: true, sampled: false }, 202);

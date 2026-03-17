@@ -28,10 +28,9 @@ export function ErrorSeverityChart({ data }: ErrorSeverityChartProps) {
 
   const total = useMemo(() => sorted.reduce((sum, s) => sum + s.count, 0), [sorted]);
 
-  if (total === 0) return null;
-
   // Build SVG donut segments
   const segments = useMemo(() => {
+    if (total === 0) return [];
     const result: { level: string; color: string; offset: number; pct: number; count: number }[] = [];
     let cumulative = 0;
 
@@ -51,6 +50,8 @@ export function ErrorSeverityChart({ data }: ErrorSeverityChartProps) {
   }, [sorted, total]);
 
   const circumference = 2 * Math.PI * 35;
+
+  if (total === 0) return null;
 
   return (
     <div className="rounded-2xl border border-dashboard-border bg-dashboard-surface/30 p-4">

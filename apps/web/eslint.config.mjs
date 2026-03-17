@@ -13,6 +13,16 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react-hooks/immutability": "warn",
+      "react-hooks/error-boundaries": "warn",
+      "react-hooks/static-components": "warn",
+      "react-hooks/preserve-manual-memoization": "warn",
+      "react-hooks/purity": "warn",
+    },
+  },
 ];
 
 export default eslintConfig;

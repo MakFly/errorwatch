@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -31,10 +31,8 @@ export default function InvitePage() {
   const { data: session, isPending: sessionLoading } = useSession();
   const t = useTranslations("onboarding.invite");
 
-  const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const checkInviteQuery = trpc.members.checkInvite.useQuery(
@@ -43,50 +41,47 @@ export default function InvitePage() {
   );
   const acceptMutation = trpc.members.acceptInvite.useMutation();
 
-  useEffect(() => {
-    if (checkInviteQuery.data?.valid && checkInviteQuery.data.organizationName && checkInviteQuery.data.organizationSlug && checkInviteQuery.data.email && checkInviteQuery.data.role && checkInviteQuery.data.expiresAt) {
-      setInviteInfo({
-        organizationName: checkInviteQuery.data.organizationName,
-        organizationSlug: checkInviteQuery.data.organizationSlug,
-        email: checkInviteQuery.data.email,
-        role: checkInviteQuery.data.role,
-        expiresAt: checkInviteQuery.data.expiresAt,
-      });
-      setIsLoading(false);
-    } else if (checkInviteQuery.data && !checkInviteQuery.data.valid) {
-      setError(checkInviteQuery.data.error || t("invalidOrExpired"));
-      setIsLoading(false);
+  const inviteInfo = useMemo<InviteInfo | null>(() => {
+    const data = checkInviteQuery.data;
+    if (data?.valid && data.organizationName && data.organizationSlug && data.email && data.role && data.expiresAt) {
+      return {
+        organizationName: data.organizationName,
+        organizationSlug: data.organizationSlug,
+        email: data.email,
+        role: data.role,
+        expiresAt: data.expiresAt,
+      };
     }
-    if (checkInviteQuery.error) {
-      setError(checkInviteQuery.error.message || t("invalidOrExpired"));
-      setIsLoading(false);
-    }
-  }, [checkInviteQuery.data, checkInviteQuery.error, t]);
+    return null;
+  }, [checkInviteQuery.data]);
+
+  const isLoading = checkInviteQuery.isLoading || sessionLoading;
+  const error = acceptError
+    ?? (checkInviteQuery.data && !checkInviteQuery.data.valid ? (checkInviteQuery.data.error || t("invalidOrExpired")) : null)
+    ?? (checkInviteQuery.error ? (checkInviteQuery.error.message || t("invalidOrExpired")) : null);
 
   const handleAccept = async () => {
     if (!session) {
-      // Redirect to login with return URL
       router.push(`/login?redirect=/invite/${token}`);
       return;
     }
 
     setIsAccepting(true);
-    setError(null);
+    setAcceptError(null);
 
     try {
       await acceptMutation.mutateAsync({ token });
       setSuccess(true);
-      // Redirect to dashboard after 2 seconds
       setTimeout(() => {
         router.push("/dashboard");
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("failedToAccept"));
+      setAcceptError(err instanceof Error ? err.message : t("failedToAccept"));
       setIsAccepting(false);
     }
   };
 
-  if (isLoading || sessionLoading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
@@ -162,7 +157,6 @@ export default function InvitePage() {
 
           {inviteInfo && (
             <div className="space-y-4">
-              {/* Organization Info */}
               <div className="rounded-xl border border-border/50 bg-secondary/20 p-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
@@ -177,7 +171,6 @@ export default function InvitePage() {
                 </div>
               </div>
 
-              {/* Invited Email */}
               <div className="rounded-lg bg-secondary/30 p-3 text-center">
                 <p className="text-sm text-muted-foreground">
                   {t("invitationSentTo")} <strong>{inviteInfo.email}</strong>

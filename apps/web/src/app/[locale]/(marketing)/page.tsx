@@ -20,7 +20,6 @@ import {
   motion,
   useScroll,
   useTransform,
-  useSpring,
   useInView,
 } from "framer-motion";
 import { useRef } from "react";
@@ -258,7 +257,7 @@ function HeroSection() {
             animate="visible"
             variants={staggerContainer}
           >
-            {badges.map((badge, i) => (
+            {badges.map((badge) => (
               <motion.span
                 key={badge.text}
                 variants={scaleIn}
@@ -539,7 +538,7 @@ function FeaturesSection() {
           initial="hidden"
           animate={isInView ? "visible" : "hidden"}
         >
-          {features.map((feature, i) => (
+          {features.map((feature) => (
             <motion.div
               key={feature.title}
               variants={fadeInUp}

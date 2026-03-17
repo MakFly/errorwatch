@@ -1,3 +1,4 @@
+import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import { ErrorWatchSidebar } from "@/components/errorwatch-sidebar";
 import { ErrorWatchHeader } from "@/components/errorwatch-header";
@@ -10,6 +11,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
+    <OrganizationProvider>
     <ProjectProvider>
       <SidebarProvider>
         <ErrorWatchSidebar variant="inset" />
@@ -24,5 +26,6 @@ export default function DashboardLayout({
       </SidebarProvider>
       <Toaster />
     </ProjectProvider>
+    </OrganizationProvider>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Server, Terminal, FileCode, Copy, Check, CheckCircle2, Info } from "lucide-react";
 import { useCurrentProject } from "@/contexts/ProjectContext";
@@ -201,18 +201,14 @@ export default function InfrastructurePage() {
     dateRange,
   });
 
-  const hostList = hosts.data ?? [];
+  const hostList = useMemo(() => hosts.data ?? [], [hosts.data]);
 
-  // Auto-select first host when hosts load (via useEffect, not during render)
-  useEffect(() => {
-    if (hostList.length > 0 && !selectedHostId) {
-      setSelectedHostId(hostList[0].hostId);
-    }
-  }, [hostList, selectedHostId]);
+  // Derive effective host: user selection or first available
+  const effectiveHostId = selectedHostId ?? hostList[0]?.hostId ?? null;
 
   const historyData = history.data ?? [];
   const latestData = latest.data ?? [];
-  const selectedSnapshot = latestData.find((s) => s.hostId === selectedHostId);
+  const selectedSnapshot = latestData.find((s) => s.hostId === effectiveHostId);
 
   // Loading: wait for project context and initial hosts query
   if (projectLoading || !currentProjectId || hosts.isLoading) {
@@ -236,7 +232,7 @@ export default function InfrastructurePage() {
       <div className="flex flex-wrap items-center gap-3">
         <HostSelector
           hosts={hostList}
-          value={selectedHostId}
+          value={effectiveHostId}
           onChange={setSelectedHostId}
         />
         <DateRangeSelector

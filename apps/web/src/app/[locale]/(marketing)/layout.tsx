@@ -29,12 +29,16 @@ const localeLabels: Record<string, string> = {
   fr: "FR",
 };
 
+function setLocaleCookie(locale: string) {
+  document.cookie = `NEXT_LOCALE=${locale};path=/;max-age=31536000;SameSite=Lax`;
+}
+
 function MarketingLocaleSwitcher() {
   const locale = useLocale();
   const router = useRouter();
 
   function onChange(newLocale: string) {
-    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000;SameSite=Lax`;
+    setLocaleCookie(newLocale);
     router.refresh();
   }
 

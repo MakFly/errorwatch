@@ -140,7 +140,7 @@ export async function proxy(request: NextRequest) {
       const sessionRes = await fetch(`${API_URL}/api/auth/get-session`, {
         headers: {
           ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-          Origin: request.headers.get("origin") || undefined,
+          ...(request.headers.get("origin") ? { Origin: request.headers.get("origin")! } : {}),
         },
         cache: "no-store",
         credentials: "include",
@@ -158,7 +158,7 @@ export async function proxy(request: NextRequest) {
       }
 
       userId = sessionData.user.id;
-      if (sessionToken) {
+      if (sessionToken && userId) {
         setSessionCache(sessionToken, userId);
       }
     } catch (error) {

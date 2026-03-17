@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { signUp, signIn, useSession } from "@/lib/auth-client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api } from "@/server/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Zap, FlaskConical, Github, Rocket, Users, BarChart3, ArrowRight } from "lucide-react";
@@ -59,8 +58,9 @@ export default function SignupPage() {
         provider,
         callbackURL: `${appUrl}/dashboard`,
       });
-    } catch (error: any) {
-      const errorCode = error?.code || error?.message;
+    } catch (error: unknown) {
+      const err = error as Record<string, string> | undefined;
+      const errorCode = err?.code || err?.message;
       const providerLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
       if (errorCode === "PROVIDER_NOT_FOUND" || errorCode?.includes("PROVIDER_NOT_FOUND")) {
         toast.error(t("ssoNotConfigured", { provider: providerLabel }));

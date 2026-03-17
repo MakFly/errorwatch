@@ -3,7 +3,7 @@ import { eq, and, or } from "drizzle-orm";
 import { db } from "../db/connection";
 import { apiKeys, projects, organizationMembers } from "../db/schema";
 
-const API_KEY_HASH_SECRET = process.env.API_KEY_HASH_SECRET;
+const API_KEY_HASH_SECRET: string = process.env.API_KEY_HASH_SECRET ?? "";
 if (!API_KEY_HASH_SECRET) {
   throw new Error("Missing required environment variable: API_KEY_HASH_SECRET");
 }

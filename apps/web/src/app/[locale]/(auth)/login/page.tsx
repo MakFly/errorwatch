@@ -3,8 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { signIn, useSession } from "@/lib/auth-client";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
-import { api } from "@/server/api";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,8 +39,6 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [ssoLoading, setSsoLoading] = useState<string | null>(null);
   const [devUsers, setDevUsers] = useState<DevUser[]>([]);
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/dashboard";
   const router = useRouter();
   const { data: session, isPending } = useSession();
 
@@ -76,8 +73,9 @@ function LoginForm() {
         provider,
         callbackURL: `${appUrl}/dashboard`,
       });
-    } catch (error: any) {
-      const errorCode = error?.code || error?.message;
+    } catch (error: unknown) {
+      const err = error as Record<string, string> | undefined;
+      const errorCode = err?.code || err?.message;
       const providerLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
       if (errorCode === "PROVIDER_NOT_FOUND" || errorCode?.includes("PROVIDER_NOT_FOUND")) {
         toast.error(t("ssoNotConfigured", { provider: providerLabel }));
