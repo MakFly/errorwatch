@@ -201,13 +201,16 @@ cmd_database() {
                 info "Aborted."
                 return 0
             fi
+            info "Stopping API..."
+            $COMPOSE stop api
             info "Dropping database '$db_name'..."
             docker exec errorwatch-postgres psql -U "$db_user" -d postgres -c "DROP DATABASE IF EXISTS \"$db_name\";"
             info "Recreating database '$db_name'..."
             docker exec errorwatch-postgres psql -U "$db_user" -d postgres -c "CREATE DATABASE \"$db_name\" OWNER \"$db_user\";"
             ok "Database recreated."
-            info "Pushing schema..."
-            docker exec errorwatch-api bunx drizzle-kit push
+            info "Starting API (entrypoint will push schema automatically)..."
+            $COMPOSE up -d api
+            wait_healthy errorwatch-api
             ok "Database reset complete."
             ;;
         --update)
