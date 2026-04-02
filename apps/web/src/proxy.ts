@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 
-import { getInternalMonitoringApiUrl } from "@/lib/config";
+import { getInternalMonitoringApiUrl, getServerEnvFlag, getServerNodeEnv } from "@/lib/config";
 import { routing } from "@/i18n/routing";
 
 const intlMiddleware = createIntlMiddleware(routing);
@@ -20,10 +20,7 @@ function propagateIntlCookies(intlResponse: NextResponse, response: NextResponse
   return response;
 }
 
-const API_URL = getInternalMonitoringApiUrl();
 const API_VERSION = "v1";
-const FAIL_OPEN = process.env.AUTH_FAIL_OPEN === "true" || process.env.NODE_ENV !== "production";
-const SELF_HOSTED = process.env.SELF_HOSTED === "true";
 
 const CACHE_TTL = 30000;
 
@@ -91,6 +88,9 @@ function invalidateSessionAndRedirect(
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const cookieHeader = request.headers.get("cookie") ?? "";
+  const apiUrl = getInternalMonitoringApiUrl();
+  const failOpen = getServerEnvFlag("AUTH_FAIL_OPEN") || getServerNodeEnv() !== "production";
+  const selfHosted = getServerEnvFlag("SELF_HOSTED");
 
   const isApiRoute = pathname.startsWith("/api");
   const isStaticRoute = pathname.startsWith("/_next");
@@ -118,14 +118,14 @@ export async function proxy(request: NextRequest) {
   const hasSessionCookie = sessionToken !== null;
 
   let instanceStatus: InstanceStatus | null = null;
-  if (SELF_HOSTED) {
+  if (selfHosted) {
     try {
-      const instanceRes = await fetch(`${API_URL}/api/${API_VERSION}/instance/status`, {
+      const instanceRes = await fetch(`${apiUrl}/api/${API_VERSION}/instance/status`, {
         cache: "no-store",
       });
 
       if (!instanceRes.ok) {
-        if (!FAIL_OPEN) {
+        if (!failOpen) {
           return new NextResponse("Service unavailable", { status: 503 });
         }
       } else {
@@ -133,13 +133,13 @@ export async function proxy(request: NextRequest) {
       }
     } catch (error) {
       console.error("[Middleware] Failed to fetch instance status:", error);
-      if (!FAIL_OPEN) {
+      if (!failOpen) {
         return new NextResponse("Service unavailable", { status: 503 });
       }
     }
   }
 
-  if (SELF_HOSTED && instanceStatus) {
+  if (selfHosted && instanceStatus) {
     if (!instanceStatus.initialized) {
       const shouldRedirectToSetup =
         pathname === "/" ||
@@ -190,7 +190,7 @@ export async function proxy(request: NextRequest) {
     userId = cachedUserId;
   } else {
     try {
-      const sessionRes = await fetch(`${API_URL}/api/auth/get-session`, {
+      const sessionRes = await fetch(`${apiUrl}/api/auth/get-session`, {
         headers: {
           ...(cookieHeader ? { Cookie: cookieHeader } : {}),
           ...(request.headers.get("origin") ? { Origin: request.headers.get("origin")! } : {}),
@@ -217,7 +217,7 @@ export async function proxy(request: NextRequest) {
     } catch (error) {
       console.error("[Middleware] Failed to validate session:", error);
       sessionValidationFailed = true;
-      if (!FAIL_OPEN) {
+      if (!failOpen) {
         return invalidateSessionAndRedirect(request, pathname, "auth_unavailable");
       }
     }
@@ -230,10 +230,10 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/dashboard" || pathname === "/dashboard/") {
     try {
       const [statusRes, orgsRes] = await Promise.all([
-        fetch(`${API_URL}/api/${API_VERSION}/onboarding/status`, {
+        fetch(`${apiUrl}/api/${API_VERSION}/onboarding/status`, {
           headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
         }),
-        fetch(`${API_URL}/api/${API_VERSION}/organizations`, {
+        fetch(`${apiUrl}/api/${API_VERSION}/organizations`, {
           headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
         }),
       ]);
@@ -260,7 +260,7 @@ export async function proxy(request: NextRequest) {
       return propagateIntlCookies(intlResponse, NextResponse.redirect(new URL("/onboarding", request.url)));
     } catch (error) {
       console.error("Failed to fetch organizations:", error);
-      if (!FAIL_OPEN) {
+      if (!failOpen) {
         return new NextResponse("Service unavailable", { status: 503 });
       }
     }
@@ -269,7 +269,7 @@ export async function proxy(request: NextRequest) {
   if (!sessionValidationFailed && isOnboardingRoute) {
     try {
       const statusRes = await fetch(
-        `${API_URL}/api/${API_VERSION}/onboarding/status`,
+        `${apiUrl}/api/${API_VERSION}/onboarding/status`,
         {
           headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
         }
@@ -283,7 +283,7 @@ export async function proxy(request: NextRequest) {
       }
     } catch (error) {
       console.error("Failed to check onboarding status:", error);
-      if (!FAIL_OPEN) {
+      if (!failOpen) {
         return new NextResponse("Service unavailable", { status: 503 });
       }
     }

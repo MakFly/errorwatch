@@ -3,7 +3,7 @@
  * Uses ADMIN_API_KEY (never exposed to the browser)
  */
 
-import { API_URL } from "./client";
+import { getApiUrl } from "./client";
 
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || "";
 
@@ -12,7 +12,7 @@ async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error("ADMIN_API_KEY is not configured on the server");
   }
 
-  const res = await fetch(`${API_URL}/api/v1/admin${path}`, {
+  const res = await fetch(`${getApiUrl()}/api/v1/admin${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

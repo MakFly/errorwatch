@@ -63,6 +63,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build web image for runtime smoke test
+        if: matrix.target == 'web'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          load: true
+          tags: errorwatch-web:smoke
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test web runtime config
+        if: matrix.target == 'web'
+        run: ./scripts/smoke-test-web-runtime-config.sh errorwatch-web:smoke
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:

@@ -6,17 +6,26 @@
 import { logApiCall, createApiTimer } from '@/lib/api-logger';
 import { getInternalMonitoringApiUrl } from '@/lib/config';
 
-export const API_URL = getInternalMonitoringApiUrl();
 export const API_VERSION = "v1";
-export const API_BASE = `${API_URL}/api/${API_VERSION}`;
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
+export function getApiUrl(): string {
+  return getInternalMonitoringApiUrl();
+}
+
+export function getApiBase(): string {
+  return `${getApiUrl()}/api/${API_VERSION}`;
+}
+
 export async function fetchAPI<T>(endpoint: string, options?: RequestInit & { cookie?: string }): Promise<T> {
+  const apiUrl = getApiUrl();
+  const apiBase = getApiBase();
+
   // Determine if endpoint is already versioned or needs base URL
   const url = endpoint.startsWith("/api/")
-    ? `${API_URL}${endpoint}`
-    : `${API_BASE}${endpoint}`;
+    ? `${apiUrl}${endpoint}`
+    : `${apiBase}${endpoint}`;
 
   const method = (options?.method || 'GET') as HttpMethod;
   const body = options?.body ? JSON.parse(options.body as string) : undefined;

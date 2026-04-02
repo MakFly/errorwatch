@@ -1,4 +1,4 @@
-import { API_BASE, fetchAPI } from './client';
+import { fetchAPI, getApiBase } from './client';
 import type { Member, Invite } from './types';
 
 export const getByOrganization = async (organizationId: string): Promise<Member[]> => {
@@ -23,7 +23,7 @@ export const checkInvite = async (token: string): Promise<{
   hasAccount?: boolean;
   error?: string;
 }> => {
-  const response = await fetch(`${API_BASE}/members/check/${token}`, {
+  const response = await fetch(`${getApiBase()}/members/check/${token}`, {
     credentials: "include",
   });
 
