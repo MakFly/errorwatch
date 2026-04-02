@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { createSSRHelpers } from "@/server/trpc/router";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
-import { DashboardProviders } from "./providers";
 
 async function PrefetchedDashboard({
   children,
@@ -22,9 +21,7 @@ async function PrefetchedDashboard({
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <DashboardProviders>
-        {children}
-      </DashboardProviders>
+      {children}
     </HydrationBoundary>
   );
 }

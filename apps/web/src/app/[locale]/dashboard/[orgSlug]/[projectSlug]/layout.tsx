@@ -1,21 +1,36 @@
 import { ReactNode } from "react";
+import { notFound } from "next/navigation";
+import { getDashboardCollections, getDashboardOrganization, getDashboardProject } from "../../dashboard-data";
+import { ProjectDashboardShell } from "./project-shell";
 
 interface ProjectLayoutProps {
   children: ReactNode;
   params: Promise<{ orgSlug: string; projectSlug: string }>;
 }
 
-/**
- * Project layout - validates projectSlug exists
- * The actual project validation happens in ProjectContext
- * This layout just passes through for now
- */
 export default async function ProjectLayout({
   children,
   params,
 }: ProjectLayoutProps) {
-  // Await params (Next.js 15 requirement)
   const { orgSlug, projectSlug } = await params;
+  const [{ organizations, projects }, organization, project] = await Promise.all([
+    getDashboardCollections(),
+    getDashboardOrganization(orgSlug),
+    getDashboardProject(orgSlug, projectSlug),
+  ]);
 
-  return <>{children}</>;
+  if (!organization || !project) {
+    notFound();
+  }
+
+  return (
+    <ProjectDashboardShell
+      currentOrgSlug={orgSlug}
+      currentProjectSlug={projectSlug}
+      organizations={organizations}
+      projects={projects}
+    >
+      {children}
+    </ProjectDashboardShell>
+  );
 }

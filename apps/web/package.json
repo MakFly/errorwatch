@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "set -a && . ../../.env && next dev --webpack -p 4000",
-    "dev:standalone": "set -a && . ../../.env && next dev --webpack -p 4001",
+    "dev": "set -a && . ../../.env && next dev -p 4000",
+    "dev:standalone": "set -a && . ../../.env && next dev -p 4001",
     "build": "next build",
     "start": "next start -p 4001",
     "lint": "eslint .",

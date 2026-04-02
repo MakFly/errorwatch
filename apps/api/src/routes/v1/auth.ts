@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { auth } from "../../auth";
 import logger from "../../logger";
+import { InstanceService } from "../../services/InstanceService";
 
 const router = new Hono();
 
@@ -13,6 +14,20 @@ router.on(["POST", "GET"], "/*", async (c) => {
   const path = c.req.path;
 
   logger.debug(`Auth request: ${method} ${path}`);
+
+  if (method === "POST" && path.includes("/sign-up")) {
+    const instanceStatus = await InstanceService.getStatus();
+    if (instanceStatus.selfHosted) {
+      return c.json(
+        {
+          error: instanceStatus.initialized
+            ? "Public signup is disabled on this self-hosted instance"
+            : "Use /setup to initialize this self-hosted instance",
+        },
+        403
+      );
+    }
+  }
 
   try {
     const response = await auth.handler(c.req.raw);

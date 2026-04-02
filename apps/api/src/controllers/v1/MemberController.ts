@@ -1,4 +1,6 @@
 import type { AuthContext } from "../../types/context";
+import type { Context } from "hono";
+import { z } from "zod";
 import { MemberService } from "../../services/MemberService";
 
 export const getByOrganization = async (c: AuthContext) => {
@@ -35,7 +37,7 @@ export const invite = async (c: AuthContext) => {
   }
 };
 
-export const checkInvite = async (c: AuthContext) => {
+export const checkInvite = async (c: Context) => {
   const token = c.req.param("token");
 
   try {
@@ -52,6 +54,35 @@ export const checkInvite = async (c: AuthContext) => {
   }
 };
 
+export const redeemInvite = async (c: Context) => {
+  const schema = z.object({
+    token: z.string().min(1),
+    name: z.string().trim().min(1).max(100),
+    password: z.string().min(8).max(200),
+  });
+
+  try {
+    const { token, name, password } = schema.parse(await c.req.json());
+    const result = await MemberService.redeemInvite(token, name, password);
+    return c.json(result);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: "Invalid input", details: error.issues }, 400);
+    }
+    if (
+      error.message === "Invitation not found" ||
+      error.message === "Invitation expired" ||
+      error.message === "Name is required"
+    ) {
+      return c.json({ error: error.message }, error.message === "Invitation not found" ? 404 : 400);
+    }
+    if (error.message === "Account already exists for this invitation") {
+      return c.json({ error: error.message }, 409);
+    }
+    return c.json({ error: error.message || "Failed to redeem invitation" }, 500);
+  }
+};
+
 export const acceptInvite = async (c: AuthContext) => {
   const userId = c.get("userId");
   const { token } = await c.req.json();
@@ -65,6 +96,9 @@ export const acceptInvite = async (c: AuthContext) => {
     }
     if (error.message === "Invitation expired") {
       return c.json({ error: error.message }, 400);
+    }
+    if (error.message === "Invitation email does not match current user") {
+      return c.json({ error: error.message }, 403);
     }
     return c.json({ error: error.message || "Failed to accept invitation" }, 500);
   }
@@ -87,4 +121,3 @@ export const remove = async (c: AuthContext) => {
     return c.json({ error: error.message || "Failed to remove member" }, 500);
   }
 };
-

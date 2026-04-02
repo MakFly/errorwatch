@@ -3,6 +3,13 @@ import { db } from "../db/connection";
 import { organizations, organizationMembers } from "../db/schema";
 
 export const OrganizationRepository = {
+  hasAnyOrganization: (executor: any = db) =>
+    executor
+      .select({ id: organizations.id })
+      .from(organizations)
+      .limit(1)
+      .then((rows: any[]) => rows.length > 0),
+
   findByUserId: (userId: string) =>
     db
       .select({
@@ -62,4 +69,3 @@ export const OrganizationRepository = {
       )
       .then(rows => rows[0]),
 };
-

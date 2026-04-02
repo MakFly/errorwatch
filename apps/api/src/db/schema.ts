@@ -219,6 +219,17 @@ export const invitations = pgTable("invitations", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
+export const instanceSettings = pgTable("instance_settings", {
+  id: text("id").primaryKey(),
+  initialized: boolean("initialized").notNull().default(false),
+  initializedAt: timestamp("initialized_at", { withTimezone: true }),
+  initializedByUserId: text("initialized_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
 // ============================================
 // API & Configuration Tables
 // ============================================

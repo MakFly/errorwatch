@@ -42,6 +42,24 @@ const authRouter = router({
   }),
 });
 
+const instanceRouter = router({
+  getStatus: publicProcedure.query(async () => {
+    return api.instance.getStatus();
+  }),
+
+  bootstrap: publicProcedure
+    .input(
+      z.object({
+        name: z.string().trim().min(1).max(100),
+        email: z.string().email(),
+        password: z.string().min(8).max(200),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return api.instance.bootstrap(input);
+    }),
+});
+
 /**
  * Groups router - protected
  */
@@ -320,6 +338,18 @@ const membersRouter = router({
     .input(z.object({ token: z.string() }))
     .mutation(async ({ input }) => {
       return api.members.acceptInvite(input.token);
+    }),
+
+  redeemInvite: publicProcedure
+    .input(
+      z.object({
+        token: z.string(),
+        name: z.string().trim().min(1).max(100),
+        password: z.string().min(8).max(200),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return api.members.redeemInvite(input.token, input.name, input.password);
     }),
 
   remove: protectedProcedure
@@ -808,6 +838,7 @@ const infrastructureRouter = router({
  */
 export const appRouter = router({
   auth: authRouter,
+  instance: instanceRouter,
   groups: groupsRouter,
   stats: statsRouter,
   organizations: organizationsRouter,

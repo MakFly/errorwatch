@@ -1,15 +1,8 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useMemo } from "react";
-import { usePathname } from "next/navigation";
+import type { Organization } from "@/server/api";
 import { trpc } from "@/lib/trpc/client";
-
-interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  role: "owner" | "admin" | "member";
-}
 
 interface OrganizationContextType {
   currentOrgId: string | null;
@@ -22,34 +15,38 @@ interface OrganizationContextType {
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
 
-/**
- * Extract organization slug from pathname
- * e.g., "/dashboard/my-company/issues" → "my-company"
- */
-function extractOrgSlugFromPath(pathname: string): string | null {
-  const match = pathname.match(/^\/dashboard\/([^/]+)/);
-  if (!match || match[1] === "_") return null;
-  return match[1];
-}
+type OrganizationProviderProps = {
+  children: ReactNode;
+  currentOrgSlug: string | null;
+  initialOrganizations?: Organization[];
+  initialCurrentOrganization?: Organization | null;
+};
 
-export function OrganizationProvider({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const { data: organizations = [], isLoading, refetch: refetchOrgs } = trpc.organizations.getAll.useQuery();
-
-  // Derive slug from URL - always in sync
-  const currentOrgSlug = useMemo(() => {
-    return extractOrgSlugFromPath(pathname);
-  }, [pathname]);
+export function OrganizationProvider({
+  children,
+  currentOrgSlug,
+  initialOrganizations,
+  initialCurrentOrganization = null,
+}: OrganizationProviderProps) {
+  const {
+    data: organizations = [],
+    isLoading,
+    refetch: refetchOrgs,
+  } = trpc.organizations.getAll.useQuery(undefined, {
+    initialData: initialOrganizations,
+  });
 
   const refetch = async () => {
     await refetchOrgs();
   };
 
-  // Resolve org from slug
   const currentOrganization = useMemo(() => {
-    if (!currentOrgSlug || organizations.length === 0) return null;
-    return organizations.find(o => o.slug === currentOrgSlug) || null;
-  }, [currentOrgSlug, organizations]);
+    if (!currentOrgSlug) return null;
+    return (
+      organizations.find((organization) => organization.slug === currentOrgSlug) ??
+      initialCurrentOrganization
+    );
+  }, [currentOrgSlug, initialCurrentOrganization, organizations]);
 
   const currentOrgId = currentOrganization?.id || null;
 

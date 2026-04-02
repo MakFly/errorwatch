@@ -12,6 +12,7 @@ import * as projectsApi from './projects';
 import * as projectSettingsApi from './projectSettings';
 import * as membersApi from './members';
 import * as onboardingApi from './onboarding';
+import * as instanceApi from './instance';
 import * as groupsApi from './groups';
 import * as statsApi from './stats';
 import * as apiKeysApi from './apiKeys';
@@ -53,7 +54,12 @@ export const api = {
     invite: membersApi.invite,
     checkInvite: membersApi.checkInvite,
     acceptInvite: membersApi.acceptInvite,
+    redeemInvite: membersApi.redeemInvite,
     remove: membersApi.remove,
+  },
+  instance: {
+    getStatus: instanceApi.getStatus,
+    bootstrap: instanceApi.bootstrap,
   },
   onboarding: {
     getStatus: onboardingApi.getStatus,

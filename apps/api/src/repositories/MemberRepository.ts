@@ -3,8 +3,8 @@ import { db } from "../db/connection";
 import { organizationMembers, users, invitations, organizations } from "../db/schema";
 
 export const MemberRepository = {
-  findByOrganizationId: (organizationId: string) =>
-    db
+  findByOrganizationId: (organizationId: string, executor: any = db) =>
+    executor
       .select({
         id: organizationMembers.id,
         userId: organizationMembers.userId,
@@ -18,8 +18,8 @@ export const MemberRepository = {
       .where(eq(organizationMembers.organizationId, organizationId))
       ,
 
-  findMemberByOrgAndUser: (organizationId: string, userId: string) =>
-    db
+  findMemberByOrgAndUser: (organizationId: string, userId: string, executor: any = db) =>
+    executor
       .select()
       .from(organizationMembers)
       .where(
@@ -28,10 +28,10 @@ export const MemberRepository = {
           eq(organizationMembers.userId, userId)
         )
       )
-      .then(rows => rows[0]),
+      .then((rows: any[]) => rows[0]),
 
-  findById: (id: string) =>
-    db
+  findById: (id: string, executor: any = db) =>
+    executor
       .select({
         userId: organizationMembers.userId,
         role: organizationMembers.role,
@@ -39,10 +39,10 @@ export const MemberRepository = {
       })
       .from(organizationMembers)
       .where(eq(organizationMembers.id, id))
-      .then(rows => rows[0]),
+      .then((rows: any[]) => rows[0]),
 
-  delete: (id: string) =>
-    db.delete(organizationMembers).where(eq(organizationMembers.id, id)),
+  delete: (id: string, executor: any = db) =>
+    executor.delete(organizationMembers).where(eq(organizationMembers.id, id)),
 
   createMembership: (data: {
     id: string;
@@ -50,7 +50,7 @@ export const MemberRepository = {
     userId: string;
     role: string;
     createdAt: Date;
-  }) => db.insert(organizationMembers).values(data),
+  }, executor: any = db) => executor.insert(organizationMembers).values(data),
 };
 
 export const InvitationRepository = {
@@ -62,10 +62,10 @@ export const InvitationRepository = {
     token: string;
     expiresAt: Date;
     createdAt: Date;
-  }) => db.insert(invitations).values(data),
+  }, executor: any = db) => executor.insert(invitations).values(data),
 
-  findByToken: (token: string) =>
-    db
+  findByToken: (token: string, executor: any = db) =>
+    executor
       .select({
         id: invitations.id,
         organizationId: invitations.organizationId,
@@ -78,12 +78,11 @@ export const InvitationRepository = {
       .from(invitations)
       .innerJoin(organizations, eq(organizations.id, invitations.organizationId))
       .where(eq(invitations.token, token))
-      .then(rows => rows[0]),
+      .then((rows: any[]) => rows[0]),
 
-  findByTokenSimple: (token: string) =>
-    db.select().from(invitations).where(eq(invitations.token, token)).then(rows => rows[0]),
+  findByTokenSimple: (token: string, executor: any = db) =>
+    executor.select().from(invitations).where(eq(invitations.token, token)).then((rows: any[]) => rows[0]),
 
-  delete: (token: string) =>
-    db.delete(invitations).where(eq(invitations.token, token)),
+  delete: (token: string, executor: any = db) =>
+    executor.delete(invitations).where(eq(invitations.token, token)),
 };
-

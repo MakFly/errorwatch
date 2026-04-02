@@ -6,9 +6,26 @@ import { Cpu, MemoryStick, Server } from "lucide-react";
 import { useMemo } from "react";
 
 type LatestSnapshot = {
-  cpu: { user: number; system: number };
-  memory: { usedPercent: number };
+  cpu: { user?: number; system?: number };
+  memory: { usedPercent?: number; total?: number; used?: number };
 };
+
+function safeCpuLoad(cpu: LatestSnapshot["cpu"]): number {
+  const u = Number(cpu?.user);
+  const s = Number(cpu?.system);
+  if (!Number.isFinite(u) || !Number.isFinite(s)) return 0;
+  return u + s;
+}
+
+/** Agent payloads often omit usedPercent; derive from used/total when missing. */
+function safeMemoryUsedPercent(memory: LatestSnapshot["memory"]): number {
+  const p = Number(memory?.usedPercent);
+  if (Number.isFinite(p)) return p;
+  const total = Number(memory?.total);
+  const used = Number(memory?.used);
+  if (total > 0 && Number.isFinite(used)) return (used / total) * 100;
+  return 0;
+}
 
 export function InfraOverviewCards({
   latest,
@@ -24,10 +41,10 @@ export function InfraOverviewCards({
   const averages = useMemo(() => {
     if (latest.length === 0) return { cpu: 0, memory: 0 };
     const avgCpu =
-      latest.reduce((sum, s) => sum + s.cpu.user + s.cpu.system, 0) /
-      latest.length;
+      latest.reduce((sum, s) => sum + safeCpuLoad(s.cpu), 0) / latest.length;
     const avgMem =
-      latest.reduce((sum, s) => sum + s.memory.usedPercent, 0) / latest.length;
+      latest.reduce((sum, s) => sum + safeMemoryUsedPercent(s.memory), 0) /
+      latest.length;
     return { cpu: avgCpu, memory: avgMem };
   }, [latest]);
 

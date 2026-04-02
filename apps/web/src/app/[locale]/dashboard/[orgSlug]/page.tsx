@@ -1,52 +1,33 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useCurrentProject } from "@/contexts/ProjectContext";
-import { useCurrentOrganization } from "@/contexts/OrganizationContext";
+import { notFound, redirect } from "next/navigation";
 import { NoProjectDashboard } from "@/components/NoProjectDashboard";
-import { Skeleton } from "@/components/ui/skeleton";
+import { getDashboardCollections, getDashboardOrganization } from "../dashboard-data";
 
-/**
- * Organization page - handles empty state (no projects)
- * If projects exist, redirects to first project
- */
-export default function OrgDashboardPage() {
-  const router = useRouter();
-  const { currentOrgSlug, isLoading: orgLoading } = useCurrentOrganization();
-  const { orgProjects, isLoading: projectsLoading } = useCurrentProject();
+type OrgDashboardPageProps = {
+  params: Promise<{ orgSlug: string }>;
+};
 
-  const isLoading = orgLoading || projectsLoading;
+export default async function OrgDashboardPage({ params }: OrgDashboardPageProps) {
+  const { orgSlug } = await params;
+  const [organization, { projects }] = await Promise.all([
+    getDashboardOrganization(orgSlug),
+    getDashboardCollections(),
+  ]);
 
-  useEffect(() => {
-    // Wait for data to load
-    if (isLoading) return;
-
-    // If there are projects, redirect to the first one
-    if (orgProjects.length > 0 && currentOrgSlug) {
-      const firstProject = orgProjects[0];
-      router.replace(`/dashboard/${currentOrgSlug}/${firstProject.slug}`);
-    }
-  }, [isLoading, orgProjects, currentOrgSlug, router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-40 w-full" />
-      </div>
-    );
+  if (!organization) {
+    notFound();
   }
 
-  // No projects - show empty state
+  const orgProjects = projects.filter(
+    (project) => project.organizationId === organization.id
+  );
+
+  if (orgProjects.length > 0) {
+    redirect(`/dashboard/${orgSlug}/${orgProjects[0].slug}`);
+  }
+
   if (orgProjects.length === 0) {
     return <NoProjectDashboard />;
   }
 
-  // Redirecting to first project...
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <Skeleton className="h-8 w-32" />
-    </div>
-  );
+  return null;
 }

@@ -52,6 +52,50 @@ function mapDisks(raw: unknown): Array<{ device: string; mountpoint: string; tot
   }));
 }
 
+/** Ingested agent payloads omit `usedPercent`; derive it from used/total when missing. */
+export function mapMemory(raw: unknown): {
+  total: number;
+  used: number;
+  available: number;
+  usedPercent: number;
+  swapTotal: number;
+  swapUsed: number;
+} {
+  const m = raw as {
+    total?: number;
+    used?: number;
+    available?: number;
+    usedPercent?: number;
+    swapTotal?: number;
+    swapUsed?: number;
+  } | null;
+  if (!m || typeof m !== "object") {
+    return { total: 0, used: 0, available: 0, usedPercent: 0, swapTotal: 0, swapUsed: 0 };
+  }
+  const total = Number(m.total);
+  const used = Number(m.used);
+  const available = Number(m.available);
+  const swapTotal = Number(m.swapTotal ?? 0);
+  const swapUsed = Number(m.swapUsed ?? 0);
+  const t = Number.isFinite(total) ? total : 0;
+  const u = Number.isFinite(used) ? used : 0;
+  const pctRaw = Number(m.usedPercent);
+  const usedPercent =
+    Number.isFinite(pctRaw) && pctRaw >= 0
+      ? Math.min(100, pctRaw)
+      : t > 0
+        ? Math.round((u / t) * 1000) / 10
+        : 0;
+  return {
+    total: t,
+    used: u,
+    available: Number.isFinite(available) ? available : 0,
+    usedPercent,
+    swapTotal: Number.isFinite(swapTotal) ? swapTotal : 0,
+    swapUsed: Number.isFinite(swapUsed) ? swapUsed : 0,
+  };
+}
+
 export interface HostInfo {
   hostId: string;
   hostname: string;
@@ -139,7 +183,7 @@ export async function getLatest(projectId: string): Promise<LatestMetric[]> {
     hostId: row.host_id,
     hostname: row.hostname,
     cpu: row.cpu,
-    memory: row.memory,
+    memory: mapMemory(row.memory),
     disks: mapDisks(row.disks),
     networks: mapNetworks(row.networks),
     timestamp: row.timestamp,
@@ -192,7 +236,7 @@ export async function getHistory(
     return extractRows(rows).map((row) => ({
       timestamp: row.timestamp,
       cpu: row.cpu,
-      memory: row.memory,
+      memory: mapMemory(row.memory),
       disks: mapDisks(row.disks),
       networks: mapNetworks(row.networks),
     }));
@@ -225,7 +269,7 @@ export async function getHistory(
   return extractRows(rows).map((row) => ({
     timestamp: row.timestamp,
     cpu: row.cpu,
-    memory: row.memory,
+    memory: mapMemory(row.memory),
     disks: mapDisks(row.disks),
     networks: mapNetworks(row.networks),
   }));

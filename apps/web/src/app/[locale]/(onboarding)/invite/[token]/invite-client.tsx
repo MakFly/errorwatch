@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Building2,
   UserPlus,
@@ -14,7 +15,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
-import { useSession } from "@/lib/auth-client";
+import { signIn, useSession } from "@/lib/auth-client";
 
 interface InviteInfo {
   organizationName: string;
@@ -22,6 +23,7 @@ interface InviteInfo {
   role: string;
   email: string;
   expiresAt: Date;
+  hasAccount: boolean;
 }
 
 export function InviteClient() {
@@ -32,7 +34,11 @@ export function InviteClient() {
   const t = useTranslations("onboarding.invite");
 
   const [isAccepting, setIsAccepting] = useState(false);
+  const [isRedeeming, setIsRedeeming] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const [success, setSuccess] = useState(false);
 
   const checkInviteQuery = trpc.members.checkInvite.useQuery(
@@ -40,16 +46,26 @@ export function InviteClient() {
     { enabled: !!token }
   );
   const acceptMutation = trpc.members.acceptInvite.useMutation();
+  const redeemMutation = trpc.members.redeemInvite.useMutation();
 
   const inviteInfo = useMemo<InviteInfo | null>(() => {
     const data = checkInviteQuery.data;
-    if (data?.valid && data.organizationName && data.organizationSlug && data.email && data.role && data.expiresAt) {
+    if (
+      data?.valid &&
+      data.organizationName &&
+      data.organizationSlug &&
+      data.email &&
+      data.role &&
+      data.expiresAt &&
+      typeof data.hasAccount === "boolean"
+    ) {
       return {
         organizationName: data.organizationName,
         organizationSlug: data.organizationSlug,
         email: data.email,
         role: data.role,
         expiresAt: data.expiresAt,
+        hasAccount: data.hasAccount,
       };
     }
     return null;
@@ -78,6 +94,37 @@ export function InviteClient() {
     } catch (err) {
       setAcceptError(err instanceof Error ? err.message : t("failedToAccept"));
       setIsAccepting(false);
+    }
+  };
+
+  const handleRedeem = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (password.length < 8) {
+      setRedeemError(t("passwordTooShort"));
+      return;
+    }
+
+    setIsRedeeming(true);
+    setRedeemError(null);
+
+    try {
+      await redeemMutation.mutateAsync({ token, name, password });
+      await signIn.email(
+        { email: inviteInfo?.email ?? "", password },
+        {
+          onSuccess: () => {
+            window.location.href = "/dashboard";
+          },
+          onError: (error) => {
+            setRedeemError(error instanceof Error ? error.message : t("loginAfterRedeemFailed"));
+            setIsRedeeming(false);
+          },
+        }
+      );
+    } catch (error) {
+      setRedeemError(error instanceof Error ? error.message : t("failedToRedeem"));
+      setIsRedeeming(false);
     }
   };
 
@@ -177,29 +224,75 @@ export function InviteClient() {
                 </p>
               </div>
 
-              {error && (
+              {(error || redeemError) && (
                 <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                  {error}
+                  {error ?? redeemError}
                 </div>
               )}
 
               {!session ? (
                 <div className="space-y-3">
-                  <p className="text-center text-sm text-muted-foreground">
-                    {t("pleaseSignIn")}
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Link href={`/login?redirect=/invite/${token}`}>
-                      <Button variant="outline" className="w-full h-11">
-                        {t("signIn")}
+                  {inviteInfo?.hasAccount ? (
+                    <>
+                      <p className="text-center text-sm text-muted-foreground">
+                        {t("pleaseSignIn")}
+                      </p>
+                      <Link href={`/login?redirect=/invite/${token}`}>
+                        <Button variant="outline" className="w-full h-11">
+                          {t("signIn")}
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    <form onSubmit={handleRedeem} className="space-y-3">
+                      <p className="text-center text-sm text-muted-foreground">
+                        {t("activateAccount")}
+                      </p>
+                      <div className="space-y-2">
+                        <label htmlFor="invite-name" className="text-sm font-medium">
+                          {t("nameLabel")}
+                        </label>
+                        <Input
+                          id="invite-name"
+                          type="text"
+                          autoComplete="name"
+                          placeholder={t("namePlaceholder")}
+                          value={name}
+                          onChange={(event) => setName(event.target.value)}
+                          required
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label htmlFor="invite-password" className="text-sm font-medium">
+                          {t("passwordLabel")}
+                        </label>
+                        <Input
+                          id="invite-password"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder={t("passwordPlaceholder")}
+                          value={password}
+                          onChange={(event) => setPassword(event.target.value)}
+                          required
+                          className="h-11"
+                        />
+                      </div>
+                      <Button type="submit" disabled={isRedeeming} className="w-full h-11 gap-2">
+                        {isRedeeming ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {t("redeemingButton")}
+                          </>
+                        ) : (
+                          <>
+                            {t("activateButton")}
+                            <ArrowRight className="h-4 w-4" />
+                          </>
+                        )}
                       </Button>
-                    </Link>
-                    <Link href={`/signup?redirect=/invite/${token}`}>
-                      <Button className="w-full h-11">
-                        {t("signUp")}
-                      </Button>
-                    </Link>
-                  </div>
+                    </form>
+                  )}
                 </div>
               ) : (
                 <Button

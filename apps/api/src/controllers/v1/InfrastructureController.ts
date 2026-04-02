@@ -131,6 +131,9 @@ export const stream = async (c: AuthContext) => {
    */
   function mapSsePayload(raw: any): any {
     const mapped = { ...raw };
+    if (raw.memory != null) {
+      mapped.memory = InfrastructureService.mapMemory(raw.memory);
+    }
     if (Array.isArray(raw.networks)) {
       mapped.networks = raw.networks.map((n: any) => ({
         interface: n.interface,

@@ -1,19 +1,8 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useMemo } from "react";
-import { usePathname } from "next/navigation";
-import { useCurrentOrganization } from "./OrganizationContext";
+import type { Project } from "@/server/api";
 import { trpc } from "@/lib/trpc/client";
-
-export interface Project {
-  id: string;
-  slug: string;
-  name: string;
-  organizationId: string;
-  organizationName: string;
-  environment: string;
-  platform: string;
-}
 
 interface ProjectContextType {
   currentProjectSlug: string | null;
@@ -27,54 +16,43 @@ interface ProjectContextType {
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
-/**
- * Extract project slug from pathname
- * e.g., "/dashboard/my-org/my-project/issues" → "my-project"
- */
-function extractProjectSlugFromPath(pathname: string): string | null {
-  const match = pathname.match(/^\/dashboard\/[^/]+\/([^/]+)/);
-  if (!match) return null;
-
-  const potentialSlug = match[1];
-
-  // These are NOT project slugs - they're legacy routes or special pages
-  const reservedPaths = ['issues', 'replays', 'stats', 'settings', 'help'];
-  if (reservedPaths.includes(potentialSlug)) {
-    return null;
-  }
-
-  return potentialSlug;
-}
-
 export function ProjectProvider({
   children,
+  currentOrgId,
+  currentProjectSlug,
+  initialProjects,
+  initialCurrentProject = null,
 }: {
   children: ReactNode;
+  currentOrgId: string | null;
+  currentProjectSlug: string | null;
+  initialProjects?: Project[];
+  initialCurrentProject?: Project | null;
 }) {
-  const pathname = usePathname();
-  const { currentOrgId, isLoading: orgLoading } = useCurrentOrganization();
-  const { data: projects = [], isLoading, refetch: refetchQuery } = trpc.projects.getAll.useQuery();
-
-  // Derive project slug from URL - always in sync
-  const currentProjectSlug = useMemo(() => {
-    return extractProjectSlugFromPath(pathname);
-  }, [pathname]);
+  const {
+    data: projects = [],
+    isLoading,
+    refetch: refetchQuery,
+  } = trpc.projects.getAll.useQuery(undefined, {
+    initialData: initialProjects,
+  });
 
   const refetchProjects = async () => {
     await refetchQuery();
   };
 
-  // Filter projects by current org
   const orgProjects = useMemo(() => {
     if (!currentOrgId) return [];
-    return projects.filter(p => p.organizationId === currentOrgId);
+    return projects.filter((project) => project.organizationId === currentOrgId);
   }, [projects, currentOrgId]);
 
-  // Resolve current project from slug
   const currentProject = useMemo(() => {
     if (!currentProjectSlug || !currentOrgId) return null;
-    return orgProjects.find(p => p.slug === currentProjectSlug) || null;
-  }, [currentProjectSlug, orgProjects, currentOrgId]);
+    return (
+      orgProjects.find((project) => project.slug === currentProjectSlug) ??
+      initialCurrentProject
+    );
+  }, [currentProjectSlug, currentOrgId, initialCurrentProject, orgProjects]);
 
   const currentProjectId = currentProject?.id || null;
 
@@ -85,7 +63,7 @@ export function ProjectProvider({
       currentProject,
       projects,
       orgProjects,
-      isLoading: isLoading || orgLoading,
+      isLoading,
       refetchProjects,
     }}>
       {children}
