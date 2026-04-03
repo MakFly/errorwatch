@@ -3,6 +3,9 @@ name: Build & Publish Docker Images
 on:
   release:
     types: [published]
+  push:
+    tags:
+      - 'v*'
   schedule:
     - cron: '0 3 * * 1'  # Every Monday at 3am UTC
   workflow_dispatch:
@@ -34,8 +37,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "release" ]; then
-            git_ref="${{ github.event.release.tag_name }}"
+          if [[ "${{ github.event_name }}" == "release" ]] || [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/tags/v"* ]]; then
+            if [[ "${{ github.event_name }}" == "release" ]]; then
+              git_ref="${{ github.event.release.tag_name }}"
+            else
+              git_ref="${{ github.ref_name }}"
+            fi
             version="${git_ref#v}"
             major_minor="$(printf '%s' "$version" | awk -F. '{print $1 "." $2}')"
             echo "git_ref=${git_ref}" >> "$GITHUB_OUTPUT"
