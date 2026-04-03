@@ -10,6 +10,7 @@ concurrency:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
@@ -95,3 +96,17 @@ jobs:
             --title "${{ steps.version.outputs.version }}" \
             --generate-notes \
             --latest
+
+    outputs:
+      should_release: ${{ steps.version.outputs.should_release }}
+      version: ${{ steps.version.outputs.version }}
+
+  docker:
+    needs: release
+    if: needs.release.outputs.should_release == 'true'
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      tag: ${{ needs.release.outputs.version }}
+    permissions:
+      contents: read
+      packages: write

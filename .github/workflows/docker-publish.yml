@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag version to build (e.g. v0.13.0)'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       dry_run:
@@ -29,7 +35,7 @@ jobs:
       - name: Verify tag is on main
         id: check
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" || "${{ github.event_name }}" == "workflow_call" ]]; then
             echo "allowed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -59,17 +65,25 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "${{ github.ref }}" == "refs/tags/v"* ]]; then
+          # Resolve version from tag push or workflow_call input
+          if [[ -n "${{ inputs.tag || '' }}" ]]; then
+            version="${{ inputs.tag }}"
+            version="${version#v}"
+          elif [[ "${{ github.ref }}" == "refs/tags/v"* ]]; then
             version="${{ github.ref_name }}"
             version="${version#v}"
-            major_minor="$(printf '%s' "$version" | awk -F. '{print $1 "." $2}')"
-            echo "tags=ghcr.io/makfly/${{ matrix.image }}:${version},ghcr.io/makfly/${{ matrix.image }}:${major_minor},ghcr.io/makfly/${{ matrix.image }}:latest" >> "$GITHUB_OUTPUT"
           else
             echo "tags=ghcr.io/makfly/${{ matrix.image }}:dev" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          major_minor="$(printf '%s' "$version" | awk -F. '{print $1 "." $2}')"
+          echo "tags=ghcr.io/makfly/${{ matrix.image }}:${version},ghcr.io/makfly/${{ matrix.image }}:${major_minor},ghcr.io/makfly/${{ matrix.image }}:latest" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
