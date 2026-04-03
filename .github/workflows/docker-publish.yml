@@ -1,13 +1,9 @@
 name: Build & Publish Docker Images
 
 on:
-  release:
-    types: [published]
   push:
     tags:
       - 'v*'
-  schedule:
-    - cron: '0 3 * * 1'  # Every Monday at 3am UTC
   workflow_dispatch:
     inputs:
       dry_run:
@@ -20,8 +16,34 @@ permissions:
   packages: write
 
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git branch -r --contains "${{ github.sha }}" | grep -q 'origin/main'; then
+            echo "✅ Tag ${{ github.ref_name }} is on main"
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "❌ Tag ${{ github.ref_name }} is NOT on main — skipping build"
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build-and-push:
-    if: github.event_name != 'schedule'
+    needs: guard
+    if: needs.guard.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -37,25 +59,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "${{ github.event_name }}" == "release" ]] || [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/tags/v"* ]]; then
-            if [[ "${{ github.event_name }}" == "release" ]]; then
-              git_ref="${{ github.event.release.tag_name }}"
-            else
-              git_ref="${{ github.ref_name }}"
-            fi
-            version="${git_ref#v}"
+          if [[ "${{ github.ref }}" == "refs/tags/v"* ]]; then
+            version="${{ github.ref_name }}"
+            version="${version#v}"
             major_minor="$(printf '%s' "$version" | awk -F. '{print $1 "." $2}')"
-            echo "git_ref=${git_ref}" >> "$GITHUB_OUTPUT"
             echo "tags=ghcr.io/makfly/${{ matrix.image }}:${version},ghcr.io/makfly/${{ matrix.image }}:${major_minor},ghcr.io/makfly/${{ matrix.image }}:latest" >> "$GITHUB_OUTPUT"
           else
-            echo "git_ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
             echo "tags=ghcr.io/makfly/${{ matrix.image }}:dev" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.vars.outputs.git_ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -102,8 +116,8 @@ jobs:
   # and after each build-and-push)
   # =========================================
   cleanup:
-    if: always()
-    needs: [build-and-push]
+    if: always() && needs.guard.outputs.allowed == 'true'
+    needs: [guard, build-and-push]
     runs-on: ubuntu-latest
     strategy:
       matrix:
