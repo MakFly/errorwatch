@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { getMonitoringApiUrl } from "@/lib/config";
 
 export type SSEStatus = "connected" | "connecting" | "disconnected";
@@ -51,9 +50,6 @@ export function useSSE(orgId: string | undefined) {
             break;
           case "alert:triggered":
             queryClient.invalidateQueries({ queryKey: [["alerts"]] });
-            if (!(window as Window & { __errorwatchLogsFocused?: boolean }).__errorwatchLogsFocused) {
-              toast.info(`Alert: ${event.payload.message.length > 80 ? event.payload.message.slice(0, 80) + "…" : event.payload.message}`);
-            }
             break;
           case "transaction:new":
             queryClient.invalidateQueries({ queryKey: [["performance"]] });

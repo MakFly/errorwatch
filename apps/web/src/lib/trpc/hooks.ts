@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { trpc } from "./client";
 import { useCurrentProject } from "@/contexts/ProjectContext";
-import { toast } from "sonner";
 
 // Polling interval for fallback updates (5 minutes — SSE handles real-time)
 const REFETCH_INTERVAL = 300_000;
@@ -23,7 +21,6 @@ interface GroupsFilter {
 
 export const useGroups = (filters?: GroupsFilter) => {
   const { currentProjectId, isLoading: isProjectLoading } = useCurrentProject();
-  const previousCountRef = useRef<number | null>(null);
 
   const query = trpc.groups.getAll.useQuery(
     { ...filters, projectId: currentProjectId || undefined },
@@ -32,26 +29,6 @@ export const useGroups = (filters?: GroupsFilter) => {
       refetchInterval: REFETCH_INTERVAL,
     }
   );
-
-  // Detect new errors and show toast
-  useEffect(() => {
-    if (!query.data) return;
-
-    const total = 'total' in query.data ? query.data.total : 0;
-    const previousCount = previousCountRef.current;
-
-    if (previousCount !== null && total > previousCount) {
-      const newCount = total - previousCount;
-      toast.info(`${newCount} new error${newCount > 1 ? "s" : ""}`, {
-        action: {
-          label: "View",
-          onClick: () => query.refetch(),
-        },
-      });
-    }
-
-    previousCountRef.current = total;
-  }, [query.data, query.refetch]);
 
   return {
     ...query,

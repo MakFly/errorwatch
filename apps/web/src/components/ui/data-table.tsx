@@ -365,8 +365,8 @@ export function DataTable<TData, TValue>({
         </div>
       )}
 
-      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
-        <div className="overflow-hidden rounded-2xl border">
+      <div className="relative flex min-w-0 flex-col gap-4 overflow-x-auto px-4 lg:px-6">
+        <div className="overflow-auto rounded-2xl border">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted">
               {table.getHeaderGroups().map((headerGroup) => (
