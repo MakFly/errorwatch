@@ -1,122 +1,70 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import {
-  Globe,
-  Monitor,
-  Smartphone,
-  Tablet,
-  Chrome,
-  Server,
-} from "lucide-react";
+import { Tag } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface TagsPanelProps {
-  env?: string;
-  browser?: string | null;
-  os?: string | null;
-  deviceType?: string | null;
+  tags?: Record<string, string>;
   onTagClick?: (tag: string, value: string) => void;
   className?: string;
 }
 
-const envColors: Record<string, string> = {
-  prod: "bg-signal-fatal/10 text-signal-fatal border-signal-fatal/30",
-  production: "bg-signal-fatal/10 text-signal-fatal border-signal-fatal/30",
-  staging: "bg-signal-warning/10 text-signal-warning border-signal-warning/30",
-  dev: "bg-signal-info/10 text-signal-info border-signal-info/30",
-  development: "bg-signal-info/10 text-signal-info border-signal-info/30",
-  test: "bg-signal-debug/10 text-signal-debug border-signal-debug/30",
-  local: "bg-muted/50 text-muted-foreground border-muted",
+const TAG_COLORS: Record<string, string> = {
+  env: "bg-signal-fatal/10 text-signal-fatal border-signal-fatal/30",
+  environment: "bg-signal-fatal/10 text-signal-fatal border-signal-fatal/30",
+  level: "bg-signal-warning/10 text-signal-warning border-signal-warning/30",
+  release: "bg-pulse-primary/10 text-pulse-primary border-pulse-primary/30",
+  version: "bg-pulse-primary/10 text-pulse-primary border-pulse-primary/30",
 };
 
-function getDeviceIcon(deviceType: string | null | undefined) {
-  switch (deviceType?.toLowerCase()) {
-    case "mobile":
-      return Smartphone;
-    case "tablet":
-      return Tablet;
-    case "desktop":
-    default:
-      return Monitor;
-  }
+function getTagColor(key: string): string {
+  return TAG_COLORS[key.toLowerCase()] ?? "bg-issues-bg/50 text-foreground border-issues-border";
 }
 
-export function TagsPanel({
-  env,
-  browser,
-  os,
-  deviceType,
-  onTagClick,
-  className,
-}: TagsPanelProps) {
+export function TagsPanel({ tags, onTagClick, className }: TagsPanelProps) {
   const t = useTranslations("issueDetail.tagsPanel");
-  const DeviceIcon = getDeviceIcon(deviceType);
-  const hasAnyTag = env || browser || os || deviceType;
 
-  if (!hasAnyTag) {
+  if (!tags || Object.keys(tags).length === 0) {
     return null;
   }
 
-  const tags = [
-    {
-      key: "env",
-      label: t("environment"),
-      value: env,
-      icon: Server,
-      colorClass: env ? envColors[env] || "bg-muted/50 text-muted-foreground border-muted" : null,
-    },
-    {
-      key: "browser",
-      label: t("browser"),
-      value: browser,
-      icon: Chrome,
-      colorClass: "bg-issues-bg/50 text-foreground border-issues-border",
-    },
-    {
-      key: "os",
-      label: t("os"),
-      value: os,
-      icon: Globe,
-      colorClass: "bg-issues-bg/50 text-foreground border-issues-border",
-    },
-    {
-      key: "device",
-      label: t("device"),
-      value: deviceType,
-      icon: DeviceIcon,
-      colorClass: "bg-issues-bg/50 text-foreground border-issues-border",
-    },
-  ].filter((tag) => tag.value);
+  const entries = Object.entries(tags);
 
   return (
-    <div className={cn("rounded-lg border border-issues-border bg-issues-surface/30 p-4", className)}>
-      <h3 className="mb-4 font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
-        {t("title")}
-      </h3>
+    <div
+      className={cn(
+        "rounded-lg border border-issues-border bg-issues-surface/30 p-4",
+        className
+      )}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+        <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
+          {t("title")}
+        </h3>
+        <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+          {entries.length}
+        </span>
+      </div>
 
-      <div className="space-y-2">
-        {tags.map((tag) => {
-          const Icon = tag.icon;
-          return (
-            <button
-              key={tag.key}
-              onClick={() => onTagClick?.(tag.key, tag.value!)}
-              className={cn(
-                "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors",
-                tag.colorClass,
-                onTagClick && "hover:opacity-80 cursor-pointer"
-              )}
-              disabled={!onTagClick}
-            >
-              <div className="flex items-center gap-2">
-                <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                <span className="text-xs font-medium opacity-70">{tag.label}</span>
-              </div>
-              <span className="font-mono text-xs font-semibold">{tag.value}</span>
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap gap-2">
+        {entries.map(([key, value]) => (
+          <button
+            key={key}
+            onClick={() => onTagClick?.(key, value)}
+            disabled={!onTagClick}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-left transition-colors",
+              getTagColor(key),
+              onTagClick && "hover:opacity-80 cursor-pointer"
+            )}
+          >
+            <span className="font-mono text-[10px] font-medium opacity-70">{key}</span>
+            <span className="text-[10px] opacity-30">·</span>
+            <span className="font-mono text-[10px] font-semibold">{value}</span>
+          </button>
+        ))}
       </div>
     </div>
   );

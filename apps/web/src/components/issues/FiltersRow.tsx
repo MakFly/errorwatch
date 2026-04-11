@@ -20,10 +20,6 @@ interface FiltersRowProps {
   onEnvironmentChange: (value: string) => void;
   dateRange: DateRange;
   onDateRangeChange: (value: DateRange) => void;
-  status: string;
-  onStatusChange: (value: string) => void;
-  source?: string;
-  onSourceChange?: (value: string) => void;
   level?: string;
   onLevelChange?: (value: string) => void;
   onClear: () => void;
@@ -38,10 +34,6 @@ export function FiltersRow({
   onEnvironmentChange,
   dateRange,
   onDateRangeChange,
-  status,
-  onStatusChange,
-  source,
-  onSourceChange,
   level,
   onLevelChange,
   onClear,
@@ -123,35 +115,6 @@ export function FiltersRow({
           <SelectItem value="90d">{t("last90d")}</SelectItem>
         </SelectContent>
       </Select>
-
-      {/* Status */}
-      <Select value={status} onValueChange={onStatusChange}>
-        <SelectTrigger className="w-full border-issues-border bg-issues-surface/50 sm:w-[120px]">
-          <SelectValue placeholder={t("allStatus")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{t("allStatus")}</SelectItem>
-          <SelectItem value="open">{t("open")}</SelectItem>
-          <SelectItem value="resolved">{t("resolved")}</SelectItem>
-          <SelectItem value="ignored">{t("ignored")}</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Source */}
-      {onSourceChange && (
-        <Select value={source || "all"} onValueChange={onSourceChange}>
-          <SelectTrigger className="w-full border-issues-border bg-issues-surface/50 sm:w-[130px]">
-            <SelectValue placeholder={t("allSources")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("allSources")}</SelectItem>
-            <SelectItem value="http">{t("sourceHTTP")}</SelectItem>
-            <SelectItem value="cli">{t("sourceCLI")}</SelectItem>
-            <SelectItem value="messenger">{t("sourceQueue")}</SelectItem>
-            <SelectItem value="deprecation">{t("sourceDeprecation")}</SelectItem>
-          </SelectContent>
-        </Select>
-      )}
 
       {/* Level */}
       {onLevelChange && (

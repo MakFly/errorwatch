@@ -7,8 +7,9 @@ import { useCurrentOrganization } from "@/contexts/OrganizationContext";
 import { useCurrentProject } from "@/contexts/ProjectContext";
 import { useGroup, useGroupEvents, useGroupTimeline } from "@/lib/trpc/hooks";
 import { trpc } from "@/lib/trpc/client";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronDown, ChevronUp, Globe } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Badge } from "@/components/ui/badge";
 
 // Issue detail components
 import {
@@ -18,6 +19,125 @@ import {
   StackTraceViewer,
   ContextCards,
 } from "@/components/issue-detail";
+
+import { EventNavigator } from "@/components/issues/EventNavigator";
+import { TagsPanel } from "@/components/issues/TagsPanel";
+
+// ─── Request Section ─────────────────────────────────────────────────────────
+
+function RequestSection({
+  request,
+}: {
+  request: {
+    url?: string;
+    method?: string;
+    headers?: Record<string, string>;
+    query_string?: string;
+    data?: unknown;
+  };
+}) {
+  const [headersOpen, setHeadersOpen] = useState(false);
+  const headerEntries = request.headers ? Object.entries(request.headers) : [];
+
+  const methodColors: Record<string, string> = {
+    GET: "bg-signal-info/10 text-signal-info border-signal-info/30",
+    POST: "bg-signal-ok/10 text-signal-ok border-signal-ok/30",
+    PUT: "bg-signal-warning/10 text-signal-warning border-signal-warning/30",
+    PATCH: "bg-signal-warning/10 text-signal-warning border-signal-warning/30",
+    DELETE: "bg-signal-fatal/10 text-signal-fatal border-signal-fatal/30",
+  };
+
+  const methodClass =
+    request.method
+      ? methodColors[request.method.toUpperCase()] ?? "bg-muted/50 text-muted-foreground border-muted"
+      : "bg-muted/50 text-muted-foreground border-muted";
+
+  return (
+    <div className="rounded-xl border border-issues-border bg-issues-surface/30 p-4 space-y-3">
+      <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
+        Request
+      </h3>
+
+      {/* Method + URL */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {request.method && (
+          <Badge
+            variant="outline"
+            className={`font-mono text-xs font-bold ${methodClass}`}
+          >
+            {request.method.toUpperCase()}
+          </Badge>
+        )}
+        {request.url && (
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <code className="font-mono text-xs text-muted-foreground break-all">
+              {request.url}
+            </code>
+          </div>
+        )}
+      </div>
+
+      {/* Query string */}
+      {request.query_string && (
+        <div>
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Query
+          </span>
+          <code className="mt-1 block rounded-md bg-muted/10 px-3 py-2 font-mono text-xs text-foreground">
+            {request.query_string}
+          </code>
+        </div>
+      )}
+
+      {/* Headers (collapsible) */}
+      {headerEntries.length > 0 && (
+        <div>
+          <button
+            onClick={() => setHeadersOpen((v) => !v)}
+            className="flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {headersOpen ? (
+              <ChevronUp className="h-3 w-3" />
+            ) : (
+              <ChevronDown className="h-3 w-3" />
+            )}
+            Headers ({headerEntries.length})
+          </button>
+
+          {headersOpen && (
+            <div className="mt-2 rounded-md border border-issues-border divide-y divide-issues-border overflow-hidden">
+              {headerEntries.map(([key, value]) => (
+                <div key={key} className="flex gap-2 px-3 py-1.5 text-xs">
+                  <span className="font-mono text-muted-foreground shrink-0 w-40 truncate">
+                    {key}
+                  </span>
+                  <span className="font-mono text-foreground break-all">{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* POST data */}
+      {request.data !== undefined && request.data !== null && (
+        <div>
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Body
+          </span>
+          <pre className="mt-1 rounded-md bg-muted/10 px-3 py-2 font-mono text-xs text-foreground overflow-x-auto whitespace-pre-wrap break-all">
+            {typeof request.data === "string"
+              ? request.data
+              : JSON.stringify(request.data, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Error State ─────────────────────────────────────────────────────────────
 
 function ErrorState() {
   const { currentOrgSlug } = useCurrentOrganization();
@@ -58,12 +178,13 @@ function ErrorState() {
   );
 }
 
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function IssueDetailPage() {
   const params = useParams();
   const fingerprint = params.fingerprint as string;
   const { currentOrgSlug, currentOrgId } = useCurrentOrganization();
   const { currentProjectSlug } = useCurrentProject();
-  const t = useTranslations("issueDetail.errorPage");
 
   // Fetch data
   const {
@@ -90,10 +211,6 @@ export default function IssueDetailPage() {
   );
 
   // Mutations
-  const updateStatusMutation = trpc.groups.updateStatus.useMutation({
-    onSuccess: () => refetchGroup(),
-  });
-
   const updateAssignmentMutation = trpc.groups.updateAssignment.useMutation({
     onSuccess: () => refetchGroup(),
   });
@@ -141,22 +258,15 @@ export default function IssueDetailPage() {
         file={group.file}
         line={group.line}
         level={group.level}
-        status={group.status || "open"}
         statusCode={group.statusCode}
         orgSlug={currentOrgSlug || ""}
         projectSlug={currentProjectSlug || ""}
-        onStatusChange={(status) =>
-          updateStatusMutation.mutate({ fingerprint, status: status as "open" | "resolved" | "ignored" })
-        }
-        isUpdating={updateStatusMutation.isPending}
         assignedTo={group.assignedTo}
         members={membersList}
         onAssign={(userId) =>
           updateAssignmentMutation.mutate({ fingerprint, assignedTo: userId })
         }
         isAssigning={updateAssignmentMutation.isPending}
-        resolvedBy={group.resolvedBy}
-        resolvedAt={group.resolvedAt}
       />
 
       {/* Occurrence Chart */}
@@ -166,6 +276,16 @@ export default function IssueDetailPage() {
         lastSeen={group.lastSeen}
         timeline={timelineData}
       />
+
+      {/* Event Navigator */}
+      {events.length > 0 && (
+        <EventNavigator
+          events={events}
+          selectedEventId={selectedEventId ?? (events[0]?.id ?? null)}
+          onSelectEvent={setSelectedEventId}
+          projectSlug={currentProjectSlug || ""}
+        />
+      )}
 
       {/* Event Timeline */}
       {selectedEvent && (
@@ -187,9 +307,20 @@ export default function IssueDetailPage() {
         highlightLine={group.line}
       />
 
+      {/* Tags */}
+      {selectedEvent?.tags && Object.keys(selectedEvent.tags).length > 0 && (
+        <TagsPanel tags={selectedEvent.tags} />
+      )}
+
+      {/* Request */}
+      {selectedEvent?.request && (
+        <RequestSection request={selectedEvent.request} />
+      )}
+
       {/* Context Cards */}
       <ContextCards
         env={selectedEvent?.env}
+        contexts={selectedEvent?.contexts}
         releases={releasesData?.releases}
         firstSeenIn={releasesData?.firstSeenIn}
       />

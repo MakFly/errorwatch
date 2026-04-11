@@ -1,6 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "@/messages/en-US.json";
 
 // ---------------------------------------------------------------------------
 // Mock next/link — render as a plain <a> element
@@ -23,6 +25,17 @@ vi.mock("next/link", () => ({
 import { IssueRow } from "@/components/issues/IssueRow";
 
 // ---------------------------------------------------------------------------
+// Helper: wrap component with NextIntlClientProvider
+// ---------------------------------------------------------------------------
+function renderWithIntl(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      {ui}
+    </NextIntlClientProvider>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Default props shared across tests
 // ---------------------------------------------------------------------------
 const defaultProps = {
@@ -42,29 +55,29 @@ const defaultProps = {
 // ---------------------------------------------------------------------------
 describe("IssueRow", () => {
   test("renders the issue message", () => {
-    render(<IssueRow {...defaultProps} />);
+    renderWithIntl(<IssueRow {...defaultProps} />);
     expect(
       screen.getByText("TypeError: Cannot read property 'foo' of undefined")
     ).toBeInTheDocument();
   });
 
   test("renders the correct severity label for 'error' level", () => {
-    render(<IssueRow {...defaultProps} level="error" />);
+    renderWithIntl(<IssueRow {...defaultProps} level="error" />);
     expect(screen.getByText("ERROR")).toBeInTheDocument();
   });
 
   test("renders the correct severity label for 'fatal' level", () => {
-    render(<IssueRow {...defaultProps} level="fatal" />);
+    renderWithIntl(<IssueRow {...defaultProps} level="fatal" />);
     expect(screen.getByText("FATAL")).toBeInTheDocument();
   });
 
   test("renders the event count", () => {
-    render(<IssueRow {...defaultProps} count={150} />);
+    renderWithIntl(<IssueRow {...defaultProps} count={150} />);
     expect(screen.getByText("150")).toBeInTheDocument();
   });
 
   test("links to the correct issue detail URL", () => {
-    render(<IssueRow {...defaultProps} />);
+    renderWithIntl(<IssueRow {...defaultProps} />);
     const links = screen.getAllByRole("link");
     const detailLinks = links.filter((l) =>
       l.getAttribute("href")?.includes("abc123fingerprint")
@@ -76,7 +89,7 @@ describe("IssueRow", () => {
   });
 
   test("expands to show full message and source location on toggle button click", () => {
-    render(<IssueRow {...defaultProps} />);
+    renderWithIntl(<IssueRow {...defaultProps} />);
     const toggleButton = screen.getByRole("button");
     fireEvent.click(toggleButton);
     // Expanded details should show "Full Message" heading
@@ -85,9 +98,9 @@ describe("IssueRow", () => {
   });
 
   test("shows replay badge only when hasReplay is true", () => {
-    const { rerender } = render(<IssueRow {...defaultProps} hasReplay={false} />);
+    const { rerender } = renderWithIntl(<IssueRow {...defaultProps} hasReplay={false} />);
     // PlayCircle icon should not be present (badge container hidden)
-    const { container } = render(<IssueRow {...defaultProps} hasReplay={true} />);
+    const { container } = renderWithIntl(<IssueRow {...defaultProps} hasReplay={true} />);
     // The badge wraps a PlayCircle icon — its SVG should be present
     const svgIcons = container.querySelectorAll("svg");
     expect(svgIcons.length).toBeGreaterThan(0);
