@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import logger from "../logger";
-import type { ErrorAlertEmailData, ThresholdAlertEmailData, RegressionAlertEmailData, InvitationEmailData, CronAlertEmailData } from "../types/services";
+import type { ErrorAlertEmailData, ThresholdAlertEmailData, InvitationEmailData, CronAlertEmailData } from "../types/services";
 
 // Lazy initialization - only create Resend instance when needed
 let resend: Resend | null = null;
@@ -121,126 +121,6 @@ export async function sendErrorAlertEmail(data: ErrorAlertEmailData): Promise<{ 
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     logger.error("Email sending exception", { error: message, to: data.to });
-    return { success: false, error: message };
-  }
-}
-
-
-export async function sendRegressionAlertEmail(data: RegressionAlertEmailData): Promise<{ success: boolean; error?: string }> {
-  const client = getResend();
-  if (!client) {
-    logger.warn("RESEND_API_KEY not configured, skipping email");
-    return { success: false, error: "RESEND_API_KEY not configured" };
-  }
-
-  const resolvedAtDisplay = data.resolvedAt
-    ? new Date(data.resolvedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    : "previously";
-
-  try {
-    const { error } = await client.emails.send({
-      from: FROM_EMAIL,
-      to: data.to,
-      subject: `[${data.projectName}] Regression: ${data.errorMessage.slice(0, 50)}${data.errorMessage.length > 50 ? "..." : ""}`,
-      html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Regression Alert</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0b; color: #e4e4e7; margin: 0; padding: 0;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-    <!-- Header -->
-    <div style="text-align: center; margin-bottom: 32px;">
-      <div style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); padding: 12px 20px; border-radius: 12px;">
-        <span style="font-size: 20px; font-weight: bold; color: white;">ErrorWatch</span>
-      </div>
-    </div>
-
-    <!-- Alert Badge -->
-    <div style="text-align: center; margin-bottom: 24px;">
-      <span style="display: inline-block; background-color: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid rgba(245, 158, 11, 0.3);">
-        Issue Regressed
-      </span>
-    </div>
-
-    <!-- Regression Notice -->
-    <div style="background-color: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 24px; text-align: center;">
-      <p style="color: #fbbf24; font-size: 14px; margin: 0;">
-        This issue was previously resolved${data.resolvedAt ? ` on ${resolvedAtDisplay}` : ""} and has reoccurred.
-      </p>
-    </div>
-
-    <!-- Main Content -->
-    <div style="background-color: #18181b; border: 1px solid #27272a; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
-      <!-- Error Message -->
-      <div style="margin-bottom: 20px;">
-        <p style="color: #a1a1aa; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0;">Error Message</p>
-        <p style="font-family: 'SF Mono', Monaco, 'Courier New', monospace; font-size: 14px; color: #f87171; margin: 0; word-break: break-word;">${escapeHtml(data.errorMessage)}</p>
-      </div>
-
-      <!-- File Location -->
-      <div style="margin-bottom: 20px;">
-        <p style="color: #a1a1aa; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0;">Location</p>
-        <p style="font-family: 'SF Mono', Monaco, 'Courier New', monospace; font-size: 13px; margin: 0;">
-          <span style="color: #a78bfa;">${escapeHtml(data.errorFile)}</span><span style="color: #52525b;">:</span><span style="color: #fbbf24;">${data.errorLine}</span>
-        </p>
-      </div>
-
-      <!-- Stats Row -->
-      <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 100px; background-color: #09090b; border-radius: 8px; padding: 12px;">
-          <p style="color: #a1a1aa; font-size: 11px; text-transform: uppercase; margin: 0 0 4px 0;">Events</p>
-          <p style="font-size: 20px; font-weight: bold; color: white; margin: 0;">${data.eventCount}</p>
-        </div>
-        <div style="flex: 1; min-width: 100px; background-color: #09090b; border-radius: 8px; padding: 12px;">
-          <p style="color: #a1a1aa; font-size: 11px; text-transform: uppercase; margin: 0 0 4px 0;">Project</p>
-          <p style="font-size: 14px; font-weight: 500; color: white; margin: 0;">${escapeHtml(data.projectName)}</p>
-        </div>
-        ${data.environment ? `
-        <div style="flex: 1; min-width: 100px; background-color: #09090b; border-radius: 8px; padding: 12px;">
-          <p style="color: #a1a1aa; font-size: 11px; text-transform: uppercase; margin: 0 0 4px 0;">Environment</p>
-          <p style="font-size: 14px; font-weight: 500; color: ${data.environment === 'prod' || data.environment === 'production' ? '#f87171' : '#fbbf24'}; margin: 0;">${escapeHtml(data.environment)}</p>
-        </div>
-        ` : ""}
-      </div>
-    </div>
-
-    <!-- CTA Button -->
-    <div style="text-align: center; margin-bottom: 32px;">
-      <a href="${data.dashboardUrl}/dashboard/issues/${data.fingerprint}"
-         style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: 600; font-size: 14px;">
-        View Issue Details
-      </a>
-    </div>
-
-    <!-- Footer -->
-    <div style="text-align: center; border-top: 1px solid #27272a; padding-top: 24px;">
-      <p style="color: #52525b; font-size: 12px; margin: 0;">
-        Sent by <a href="${data.dashboardUrl}" style="color: #a78bfa; text-decoration: none;">ErrorWatch</a>
-      </p>
-      <p style="color: #3f3f46; font-size: 11px; margin: 8px 0 0 0;">
-        You're receiving this because you have alerts enabled for this project.
-      </p>
-    </div>
-  </div>
-</body>
-</html>
-      `,
-    });
-
-    if (error) {
-      logger.error("Failed to send regression email", { error: error.message, to: data.to });
-      return { success: false, error: error.message };
-    }
-
-    logger.info("Regression alert email sent", { to: data.to, fingerprint: data.fingerprint });
-    return { success: true };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    logger.error("Regression email exception", { error: message, to: data.to });
     return { success: false, error: message };
   }
 }

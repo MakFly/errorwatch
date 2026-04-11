@@ -20,5 +20,7 @@ router.get("/span-analysis", auth(), asHandler(PerformanceController.getSpanAnal
 router.get("/apdex", auth(), asHandler(PerformanceController.getApdexScore));
 router.get("/server-stats", auth(), asHandler(PerformanceController.getServerStats));
 router.get("/top-endpoints", auth(), asHandler(PerformanceController.getTopEndpoints));
+router.get("/throughput-timeline", auth(), asHandler(PerformanceController.getThroughputTimeline));
+router.get("/duration-timeline", auth(), asHandler(PerformanceController.getDurationTimeline));
 
 export default router;

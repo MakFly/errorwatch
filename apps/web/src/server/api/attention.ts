@@ -84,7 +84,7 @@ function calculateAttentionScore(group: ErrorGroup): { score: number; breakdown:
 
 /**
  * Get top attention items for a project
- * Filters: status = 'open', excludes snoozed items
+ * Fetches all issues, filters non-actionable levels (info, debug)
  * Sorted by attention score descending
  */
 export async function getTop(
@@ -94,10 +94,9 @@ export async function getTop(
   // Validate limit
   const validLimit = Math.max(1, Math.min(20, limit));
 
-  // Fetch all open error groups
+  // Fetch all error groups
   const response: GroupsResponse = await getAll({
     projectId,
-    status: "open",
     limit: 100, // Fetch more to score and filter
   });
 
@@ -107,9 +106,8 @@ export async function getTop(
     return [];
   }
 
-  // Filter out snoozed items and non-actionable levels (info, debug)
+  // Filter out non-actionable levels (info, debug)
   const activeGroups = groups.filter((group) => {
-    if (group.status === "snoozed") return false;
     if (group.level === "info" || group.level === "debug") return false;
     return true;
   });

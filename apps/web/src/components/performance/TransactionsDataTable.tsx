@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { LayersIcon, ListIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -126,14 +127,16 @@ interface SlowestTableProps {
 }
 
 export function SlowestTable({ transactions, isLoading = false }: SlowestTableProps) {
+  const t = useTranslations("performance");
+
   if (transactions.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Slowest Transactions</CardTitle>
+          <CardTitle className="text-base">{t("slowestTransactions.title")}</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center py-8">
-          <p className="text-sm text-muted-foreground">No slow transactions found.</p>
+          <p className="text-sm text-muted-foreground">{t("slowestTransactions.noData")}</p>
         </CardContent>
       </Card>
     );
@@ -142,7 +145,7 @@ export function SlowestTable({ transactions, isLoading = false }: SlowestTablePr
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Slowest Transactions</CardTitle>
+        <CardTitle className="text-base">{t("slowestTransactions.title")}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

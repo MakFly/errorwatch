@@ -96,6 +96,38 @@ function parseStackFrames(stack: string, maxFrames = 5): string[] {
 }
 
 /**
+ * Generate v2 fingerprint using structured exception data (SHA-256)
+ * More stable than v1 — normalises variable parts of the message and
+ * uses the top in-app frame as the grouping anchor.
+ */
+function generateFingerprintV2(data: {
+  projectId: string;
+  exceptionType: string;
+  exceptionValue: string;
+  frames?: Array<{ filename: string; function?: string | null; in_app?: boolean }>;
+}): string {
+  const { projectId, exceptionType, exceptionValue, frames } = data;
+
+  // Clean message: remove variable parts
+  const cleanedValue = exceptionValue
+    .replace(/0x[0-9a-f]+/gi, '<addr>')
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<uuid>')
+    .replace(/\b\d{4,}\b/g, '<num>')
+    .replace(/"[^"]{0,100}"/g, '<str>')
+    .replace(/'[^']{0,100}'/g, '<str>');
+
+  // Find top in-app frame (first frame where in_app !== false)
+  const inAppFrame = frames?.find(f => f.in_app !== false);
+  const frameKey = inAppFrame
+    ? `${inAppFrame.filename}|${inAppFrame.function || 'anonymous'}`
+    : 'unknown';
+
+  const components = [projectId, exceptionType, cleanedValue, frameKey];
+
+  return createHash("sha256").update(components.join("|")).digest("hex");
+}
+
+/**
  * Generate robust fingerprint for error deduplication
  * Includes: error type, file, line, column, stack depth, and top frames
  */
@@ -157,6 +189,18 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
     release,
     createdAt,
     userId,
+    exceptionType,
+    exceptionValue,
+    platform,
+    serverName,
+    tags,
+    extra,
+    userContext,
+    request,
+    contexts,
+    sdk,
+    frames,
+    fingerprintVersion,
   } = job.data;
 
   // Scrub PII from message and stack
@@ -178,9 +222,13 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
     }
   }
 
-  // Fallback to default fingerprint generation
+  // Fallback to versioned fingerprint generation
   if (!fingerprint) {
-    fingerprint = generateFingerprint({ projectId, message, file, line, stack, column });
+    if (fingerprintVersion === 2 && exceptionType && exceptionValue) {
+      fingerprint = generateFingerprintV2({ projectId, exceptionType, exceptionValue, frames });
+    } else {
+      fingerprint = generateFingerprint({ projectId, message, file, line, stack, column });
+    }
   }
 
   const eventCreatedAt = new Date(createdAt);
@@ -188,12 +236,6 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
 
   // Convert to ISO strings for SQL template compatibility
   const eventCreatedAtISO = eventCreatedAt.toISOString();
-  const nowISO = now.toISOString();
-
-  // Check for regression (resolved issue recurring)
-  const existing = await db.select({ status: errorGroups.status, resolvedAt: errorGroups.resolvedAt })
-    .from(errorGroups).where(eq(errorGroups.fingerprint, fingerprint)).limit(1);
-  const wasResolved = existing[0]?.status === 'resolved';
 
   // Upsert error group (atomic operation) - PostgreSQL syntax
   const result = await db
@@ -210,6 +252,8 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
       count: 1,
       firstSeen: eventCreatedAt,
       lastSeen: now,
+      exceptionType: exceptionType || null,
+      exceptionValue: exceptionValue || null,
     })
     .onConflictDoUpdate({
       target: errorGroups.fingerprint,
@@ -218,10 +262,9 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
         lastSeen: now,
         // PostgreSQL uses LEAST/GREATEST for timestamp comparison
         firstSeen: sql`LEAST(${errorGroups.firstSeen}, ${eventCreatedAtISO}::timestamp)`,
-        // Reopen resolved issues on new occurrence
-        status: sql`CASE WHEN ${errorGroups.status} = 'resolved' THEN 'open' ELSE ${errorGroups.status} END`,
-        resolvedAt: sql`CASE WHEN ${errorGroups.status} = 'resolved' THEN NULL ELSE ${errorGroups.resolvedAt} END`,
-        resolvedBy: sql`CASE WHEN ${errorGroups.status} = 'resolved' THEN NULL ELSE ${errorGroups.resolvedBy} END`,
+        // Only backfill exceptionType/exceptionValue if not yet set
+        exceptionType: sql`COALESCE(${errorGroups.exceptionType}, ${exceptionType || null})`,
+        exceptionValue: sql`COALESCE(${errorGroups.exceptionValue}, ${exceptionValue || null})`,
       },
     })
     .returning({ count: errorGroups.count });
@@ -244,6 +287,18 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
       userId: userId || null,
       release,
       createdAt: eventCreatedAt,
+      exceptionType: exceptionType || null,
+      exceptionValue: exceptionValue || null,
+      platform: platform || null,
+      serverName: serverName || null,
+      tags: tags || null,
+      extra: extra || null,
+      userContext: userContext || null,
+      request: request || null,
+      contexts: contexts || null,
+      sdk: sdk || null,
+      frames: frames || null,
+      fingerprintVersion: fingerprintVersion ?? 1,
     });
   } catch (e: any) {
     if (e?.code === "23505") {
@@ -269,7 +324,6 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
       projectId,
       fingerprint,
       isNewGroup,
-      isRegression: wasResolved,
       level,
       message,
     });
@@ -286,7 +340,7 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
     const orgId = await getProjectOrgId(projectId);
     if (orgId) {
       publishEvent(orgId, {
-        type: wasResolved ? "issue:regressed" : (isNewGroup ? "issue:new" : "issue:updated"),
+        type: isNewGroup ? "issue:new" : "issue:updated",
         projectId,
         payload: { fingerprint, message: scrubbedMessage, level },
         timestamp: Date.now(),

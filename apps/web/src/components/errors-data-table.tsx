@@ -37,8 +37,6 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import {
-  ArchiveIcon,
-  CheckCircleIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -99,7 +97,6 @@ export interface ErrorData {
   count: number
   firstSeen: Date
   lastSeen: Date
-  status: string
   file: string
   line: number
 }
@@ -121,21 +118,6 @@ function getLevelColor(level: string): string {
       return "signal-warning"
     case "info":
       return "signal-info"
-    default:
-      return "outline"
-  }
-}
-
-// Status badge color mapping
-function getStatusColor(status: string): string {
-  const statusLower = status.toLowerCase()
-  switch (statusLower) {
-    case "resolved":
-      return "success"
-    case "ignored":
-      return "secondary"
-    case "unresolved":
-      return "destructive"
     default:
       return "outline"
   }
@@ -215,25 +197,14 @@ function ErrorDetailsViewer({
                 {item.message}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-3">
-                <Label>Level</Label>
-                <Badge
-                  variant={getLevelColor(item.level) as any}
-                  className="w-fit"
-                >
-                  {item.level}
-                </Badge>
-              </div>
-              <div className="flex flex-col gap-3">
-                <Label>Status</Label>
-                <Badge
-                  variant={getStatusColor(item.status) as any}
-                  className="w-fit"
-                >
-                  {item.status}
-                </Badge>
-              </div>
+            <div className="flex flex-col gap-3">
+              <Label>Level</Label>
+              <Badge
+                variant={getLevelColor(item.level) as any}
+                className="w-fit"
+              >
+                {item.level}
+              </Badge>
             </div>
             <Separator />
             <div className="grid grid-cols-2 gap-4">
@@ -402,18 +373,6 @@ export function ErrorsDataTable({ data: initialData, projectSlug }: ErrorsDataTa
         ),
       },
       {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => (
-          <Badge
-            variant={getStatusColor(row.original.status) as any}
-            className="px-2"
-          >
-            {row.original.status}
-          </Badge>
-        ),
-      },
-      {
         id: "actions",
         cell: ({ row }) => (
           <DropdownMenu>
@@ -432,30 +391,6 @@ export function ErrorsDataTable({ data: initialData, projectSlug }: ErrorsDataTa
                 <Link href={`/dashboard/${projectSlug}/issues/${row.original.fingerprint}`}>
                   View Details
                 </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  toast.promise(new Promise((resolve) => setTimeout(resolve, 1000)), {
-                    loading: "Marking as resolved...",
-                    success: "Error marked as resolved",
-                    error: "Failed to update status",
-                  })
-                }}
-              >
-                <CheckCircleIcon className="mr-2 size-4" />
-                Mark Resolved
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  toast.promise(new Promise((resolve) => setTimeout(resolve, 1000)), {
-                    loading: "Ignoring error...",
-                    success: "Error ignored",
-                    error: "Failed to ignore error",
-                  })
-                }}
-              >
-                <ArchiveIcon className="mr-2 size-4" />
-                Ignore
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

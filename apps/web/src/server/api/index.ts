@@ -125,6 +125,8 @@ export const api = {
     getApdex: performanceApi.getApdex,
     getServerStats: performanceApi.getServerStats,
     getTopEndpoints: performanceApi.getTopEndpoints,
+    getThroughputTimeline: performanceApi.getThroughputTimeline,
+    getDurationTimeline: performanceApi.getDurationTimeline,
   },
   logs: {
     tail: logsApi.tail,

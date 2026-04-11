@@ -1,4 +1,4 @@
-import { eq, gt, desc, asc, inArray, and, sql, ilike, or, like, lt, gte } from "drizzle-orm";
+import { eq, gt, desc, inArray, and, sql, ilike, or, lt } from "drizzle-orm";
 import { db } from "../db/connection";
 import { errorGroups, errorEvents } from "../db/schema";
 
@@ -8,7 +8,6 @@ export interface CursorPaginationParams {
   dateRange?: string;
   env?: string;
   search?: string;
-  status?: string;
   level?: string;
   sort?: "lastSeen" | "firstSeen" | "count";
 }
@@ -44,7 +43,7 @@ export const GroupRepository = {
    * Optimized findAll using single query with LEFT JOIN for replay data
    * Replaces 3 separate queries (groups + replayCounts + latestReplays) with 1
    */
-  findAll: async (filters?: { dateRange?: string; env?: string; search?: string; status?: string; level?: string; levels?: string[]; sort?: string; page?: number; limit?: number }, projectId?: string) => {
+  findAll: async (filters?: { dateRange?: string; env?: string; search?: string; level?: string; levels?: string[]; sort?: string; page?: number; limit?: number }, projectId?: string) => {
     const startDate = parseDateRange(filters?.dateRange);
     const page = filters?.page || 1;
     const limit = filters?.limit || 50;
@@ -60,12 +59,6 @@ export const GroupRepository = {
     conditions.push(gt(errorGroups.lastSeen, startDate));
     conditions.push(sql`${errorGroups.mergedInto} IS NULL`);
 
-    // Auto-reopen snoozed issues (can be moved to a scheduled job for production)
-    await db.execute(sql`
-      UPDATE error_groups SET status = 'open', snoozed_until = NULL, snoozed_by = NULL
-      WHERE status = 'snoozed' AND snoozed_until IS NOT NULL AND snoozed_until < NOW()
-    `);
-
     if (filters?.search) {
       conditions.push(
         or(
@@ -73,10 +66,6 @@ export const GroupRepository = {
           ilike(errorGroups.file, `%${filters.search}%`)
         )
       );
-    }
-
-    if (filters?.status && filters.status !== "all") {
-      conditions.push(eq(errorGroups.status, filters.status));
     }
 
     if (filters?.levels && filters.levels.length > 0) {
@@ -156,14 +145,11 @@ export const GroupRepository = {
       count: row.count,
       firstSeen: row.first_seen,
       lastSeen: row.last_seen,
-      status: row.status,
-      resolvedAt: row.resolved_at,
-      resolvedBy: row.resolved_by,
       assignedTo: row.assigned_to,
       assignedAt: row.assigned_at,
       mergedInto: row.merged_into,
-      snoozedUntil: row.snoozed_until,
-      snoozedBy: row.snoozed_by,
+      exceptionType: row.exception_type,
+      exceptionValue: row.exception_value,
       hasReplay: row.has_replay,
       latestReplaySessionId: row.latest_session_id,
       latestReplayEventId: row.latest_event_id,
@@ -211,10 +197,6 @@ export const GroupRepository = {
           ilike(errorGroups.file, `%${filters.search}%`)
         )
       );
-    }
-
-    if (filters?.status && filters.status !== "all") {
-      conditions.push(eq(errorGroups.status, filters.status));
     }
 
     if (filters?.level && filters.level !== "all") {
@@ -283,14 +265,11 @@ export const GroupRepository = {
       count: row.count,
       firstSeen: row.first_seen,
       lastSeen: row.last_seen,
-      status: row.status,
-      resolvedAt: row.resolved_at,
-      resolvedBy: row.resolved_by,
       assignedTo: row.assigned_to,
       assignedAt: row.assigned_at,
       mergedInto: row.merged_into,
-      snoozedUntil: row.snoozed_until,
-      snoozedBy: row.snoozed_by,
+      exceptionType: row.exception_type,
+      exceptionValue: row.exception_value,
       hasReplay: row.has_replay,
       latestReplaySessionId: row.latest_session_id,
       latestReplayEventId: row.latest_event_id,
@@ -308,17 +287,6 @@ export const GroupRepository = {
   findByFingerprint: (fingerprint: string) =>
     db.select().from(errorGroups).where(eq(errorGroups.fingerprint, fingerprint)).then(rows => rows[0]),
 
-  updateStatus: (fingerprint: string, status: string, resolvedBy: string | null) =>
-    db
-      .update(errorGroups)
-      .set({
-        status,
-        resolvedAt: status === "resolved" ? new Date() : null,
-        resolvedBy: status === "resolved" ? resolvedBy : null,
-      })
-      .where(eq(errorGroups.fingerprint, fingerprint))
-      .returning(),
-
   updateAssignment: (fingerprint: string, assignedTo: string | null) =>
     db
       .update(errorGroups)
@@ -328,19 +296,6 @@ export const GroupRepository = {
       })
       .where(eq(errorGroups.fingerprint, fingerprint))
       .returning(),
-
-  batchUpdateStatus: async (fingerprints: string[], status: string, userId?: string) => {
-    const result = await db
-      .update(errorGroups)
-      .set({
-        status,
-        resolvedAt: status === "resolved" ? new Date() : null,
-        resolvedBy: status === "resolved" ? userId || null : null,
-      })
-      .where(inArray(errorGroups.fingerprint, fingerprints))
-      .returning();
-    return result.length;
-  },
 
   merge: async (parentFingerprint: string, childFingerprints: string[]) => {
     // Set mergedInto on children
@@ -377,18 +332,6 @@ export const GroupRepository = {
       .select()
       .from(errorGroups)
       .where(eq(errorGroups.mergedInto, fingerprint));
-  },
-
-  snooze: async (fingerprint: string, until: Date, userId?: string) => {
-    return db
-      .update(errorGroups)
-      .set({
-        status: "snoozed",
-        snoozedUntil: until,
-        snoozedBy: userId || null,
-      })
-      .where(eq(errorGroups.fingerprint, fingerprint))
-      .returning();
   },
 
   getReleaseDistribution: async (fingerprint: string) => {

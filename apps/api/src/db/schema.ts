@@ -18,10 +18,9 @@ export const errorGroups = pgTable("error_groups", {
   count: integer("count").notNull().default(1),
   firstSeen: timestamp("first_seen", { withTimezone: true }).notNull(),
   lastSeen: timestamp("last_seen", { withTimezone: true }).notNull(),
-  // Issue lifecycle
-  status: text("status").notNull().default("open"), // open, resolved, ignored
-  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
-  resolvedBy: text("resolved_by"),
+  // v2: Structured exception info (extracted from message for display/search)
+  exceptionType: text("exception_type"),   // "TypeError", "App\Exceptions\PaymentFailed"
+  exceptionValue: text("exception_value"), // "Cannot read property 'x' of undefined"
   // Assignment
   assignedTo: text("assigned_to"),
   assignedAt: timestamp("assigned_at", { withTimezone: true }),
@@ -29,17 +28,15 @@ export const errorGroups = pgTable("error_groups", {
   mergedInto: text("merged_into"),
   // User impact
   usersAffected: integer("users_affected").notNull().default(0),
-  // Snooze support
-  snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
-  snoozedBy: text("snoozed_by"),
 }, (table) => ({
   projectLastSeenIdx: index("idx_error_groups_project_last_seen").on(table.projectId, table.lastSeen),
-  statusIdx: index("idx_error_groups_status").on(table.status),
   mergedIntoIdx: index("idx_error_groups_merged_into").on(table.mergedInto),
-  // Composite indexes for list queries (status + level + lastSeen)
-  projectStatusLevelIdx: index("idx_error_groups_project_status_level").on(table.projectId, table.status, table.level, table.lastSeen),
+  // Composite index for list queries (level + lastSeen)
+  projectLevelIdx: index("idx_error_groups_project_level").on(table.projectId, table.level, table.lastSeen),
   // Index for searching by message/file (partial for performance)
   messageIdx: index("idx_error_groups_message").on(table.message),
+  // v2: Exception type search
+  exceptionTypeIdx: index("idx_error_groups_exception_type").on(table.exceptionType),
 }));
 
 export const errorEvents = pgTable("error_events", {
@@ -57,15 +54,32 @@ export const errorEvents = pgTable("error_events", {
   statusCode: integer("status_code"),
   level: text("level").notNull().default("error"), // fatal, error, warning, info, debug
   // Breadcrumbs: JSON array of user actions trail
-  // Format: [{ timestamp, category, type, level, message, data }, ...]
   breadcrumbs: jsonb("breadcrumbs"),
   // Session ID for session replay linking
   sessionId: text("session_id"),
-  // User context
+  // User context (legacy scalar — kept for index compat, populated from userContext.id)
   userId: text("user_id"),
   // Release tracking
   release: text("release"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  // ========== v2 enriched fields ==========
+  // Structured exception info
+  exceptionType: text("exception_type"),   // "TypeError", "App\Exceptions\PaymentFailed"
+  exceptionValue: text("exception_value"), // "Cannot read property 'x' of undefined"
+  // Platform & server
+  platform: text("platform"),              // "php", "javascript", "python"
+  serverName: text("server_name"),         // "web-01.prod"
+  // Arbitrary metadata (JSONB)
+  tags: jsonb("tags"),                     // {"tenant": "acme", "feature": "checkout"}
+  extra: jsonb("extra"),                   // Arbitrary developer data
+  userContext: jsonb("user_context"),       // {id, email, ip_address, username}
+  request: jsonb("request"),               // {url, method, headers, query_string, data}
+  contexts: jsonb("contexts"),             // {os: {name, version}, browser: {...}, runtime: {...}}
+  sdk: jsonb("sdk"),                       // {name: "errorwatch-laravel", version: "2.0.0"}
+  // Structured stack frames (parsed from raw stack)
+  frames: jsonb("frames"),                 // [{filename, function, lineno, colno, in_app, context_line, ...}]
+  // Fingerprint algorithm version (1=legacy SHA-1, 2=v2 SHA-256)
+  fingerprintVersion: integer("fingerprint_version").default(2),
 }, (table) => ({
   // Performance indexes for common queries
   projectCreatedIdx: index("idx_error_events_project_created").on(table.projectId, table.createdAt),
@@ -79,6 +93,9 @@ export const errorEvents = pgTable("error_events", {
   projectEnvIdx: index("idx_error_events_project_env").on(table.projectId, table.env),
   // Dedup: prevent exact duplicate events (same fingerprint + project + timestamp)
   dedupIdx: uniqueIndex("idx_error_events_dedup").on(table.fingerprint, table.projectId, table.createdAt),
+  // v2: Platform and exception type filtering
+  platformIdx: index("idx_error_events_platform").on(table.platform),
+  exceptionTypeIdx: index("idx_error_events_exception_type").on(table.exceptionType),
 }));
 
 // ============================================
@@ -327,8 +344,6 @@ export const projectSettings = pgTable("project_settings", {
     .references(() => projects.id, { onDelete: "cascade" }),
   timezone: text("timezone").notNull().default("UTC"),
   retentionDays: integer("retention_days").notNull().default(30),
-  autoResolve: boolean("auto_resolve").notNull().default(true),
-  autoResolveDays: integer("auto_resolve_days").notNull().default(14),
   // Sample rate (0.0 to 1.0, 1.0 = 100%)
   sampleRate: real("sample_rate").notNull().default(1.0),
   // Event ingestion toggle - when false, API returns 403 for all events

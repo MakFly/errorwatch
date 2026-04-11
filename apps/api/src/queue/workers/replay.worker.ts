@@ -136,7 +136,6 @@ async function processReplay(job: Job<ReplayJobData>): Promise<{ fingerprint: st
         set: {
           count: sql`${errorGroups.count} + 1`,
           lastSeen: now,
-          status: sql`CASE WHEN ${errorGroups.status} = 'resolved' THEN 'open' ELSE ${errorGroups.status} END`,
         },
       })
       .returning({ count: errorGroups.count });

@@ -124,3 +124,17 @@ export interface EndpointImpact {
   errorCount: number;
   percentOfTotal: number;
 }
+
+// Timeline types for charts
+export interface ThroughputBucket {
+  bucket: string;
+  count: number;
+  errorCount: number;
+}
+
+export interface DurationBucket {
+  bucket: string;
+  p50: number;
+  p75: number;
+  p95: number;
+}

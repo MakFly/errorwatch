@@ -14,7 +14,6 @@ export const getAll = async (filters?: GroupsFilter): Promise<GroupsResponse> =>
   if (filters?.dateRange) params.set("dateRange", filters.dateRange);
   if (filters?.projectId) params.set("projectId", filters.projectId);
   if (filters?.search) params.set("search", filters.search);
-  if (filters?.status) params.set("status", filters.status);
   if (filters?.level) params.set("level", filters.level);
   if (filters?.levels && filters.levels.length > 0) params.set("levels", filters.levels.join(","));
   if (filters?.sort) params.set("sort", filters.sort);

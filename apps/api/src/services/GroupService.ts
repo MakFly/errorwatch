@@ -1,11 +1,10 @@
-import type { IssueStatus } from "../types/services";
 import { GroupRepository } from "../repositories/GroupRepository";
 import { EventRepository } from "../repositories/EventRepository";
 import logger from "../logger";
 
 
 export const GroupService = {
-  getAll: async (filters?: { dateRange?: string; env?: string; search?: string; status?: string; level?: string; levels?: string[]; sort?: string; page?: number; limit?: number }, projectId?: string) => {
+  getAll: async (filters?: { dateRange?: string; env?: string; search?: string; level?: string; levels?: string[]; sort?: string; page?: number; limit?: number }, projectId?: string) => {
     logger.debug("Fetching error groups", { filters, projectId });
     return await GroupRepository.findAll(filters, projectId);
   },
@@ -76,22 +75,6 @@ export const GroupService = {
     }
 
     return timeline;
-  },
-
-  updateStatus: async (fingerprint: string, status: IssueStatus, userId?: string) => {
-    logger.info("Updating issue status", { fingerprint, status, userId });
-    const group = await GroupRepository.findByFingerprint(fingerprint);
-    if (!group) {
-      return null;
-    }
-
-    const result = await GroupRepository.updateStatus(
-      fingerprint,
-      status,
-      status === "resolved" ? userId || null : null
-    );
-
-    return result[0] ? { ...group, ...result[0] } : null;
   },
 
   updateAssignment: async (fingerprint: string, assignedTo: string | null) => {

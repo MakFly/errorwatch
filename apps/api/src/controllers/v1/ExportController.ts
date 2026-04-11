@@ -57,8 +57,6 @@ export const exportErrors = async (c: AuthContext) => {
   const projectId = c.req.query("projectId");
   const format = parseFormat(c.req.query("format"));
   const dateRange = parseDateRange(c.req.query("dateRange"));
-  const status = c.req.query("status");
-
   if (!projectId) {
     return c.json({ error: "projectId is required" }, 400);
   }
@@ -76,10 +74,6 @@ export const exportErrors = async (c: AuthContext) => {
     eq(errorGroups.projectId, projectId),
     gte(errorGroups.lastSeen, since),
   ];
-  if (status) {
-    conditions.push(eq(errorGroups.status, status));
-  }
-
   // Query error groups with latest event environment via subquery
   const rows = await db
     .select({
@@ -88,7 +82,6 @@ export const exportErrors = async (c: AuthContext) => {
       file: errorGroups.file,
       line: errorGroups.line,
       level: errorGroups.level,
-      status: errorGroups.status,
       count: errorGroups.count,
       usersAffected: errorGroups.usersAffected,
       firstSeen: errorGroups.firstSeen,
@@ -106,12 +99,12 @@ export const exportErrors = async (c: AuthContext) => {
     .orderBy(desc(errorGroups.lastSeen))
     .limit(MAX_ROWS);
 
-  logger.debug("Export errors", { projectId, format, dateRange, status, rowCount: rows.length });
+  logger.debug("Export errors", { projectId, format, dateRange, rowCount: rows.length });
 
   const filename = `errors-export-${dateTag()}.${format}`;
   const headers = [
     "fingerprint", "message", "file", "line", "level",
-    "status", "count", "usersAffected", "firstSeen", "lastSeen", "environment",
+    "count", "usersAffected", "firstSeen", "lastSeen", "environment",
   ];
 
   if (format === "json") {

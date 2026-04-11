@@ -84,9 +84,42 @@ export interface EventJobData {
   statusCode: number | null;
   breadcrumbs: unknown;
   sessionId: string | null;
-  release?: string;
+  release?: string | null;
   userId?: string | null;
   createdAt: string;
+  // v2 enriched fields
+  exceptionType?: string;
+  exceptionValue?: string;
+  platform?: string;
+  serverName?: string;
+  tags?: Record<string, string>;
+  extra?: Record<string, unknown>;
+  userContext?: {
+    id?: string;
+    email?: string;
+    ip_address?: string;
+    username?: string;
+  };
+  request?: {
+    url?: string;
+    method?: string;
+    headers?: Record<string, string>;
+    query_string?: string;
+    data?: unknown;
+  };
+  contexts?: Record<string, unknown>;
+  sdk?: { name: string; version: string };
+  frames?: Array<{
+    filename: string;
+    function?: string | null;
+    lineno?: number | null;
+    colno?: number | null;
+    in_app?: boolean;
+    context_line?: string | null;
+    pre_context?: string[] | null;
+    post_context?: string[] | null;
+  }>;
+  fingerprintVersion: 1 | 2;
 }
 
 export interface ReplayJobData {
@@ -110,7 +143,6 @@ export interface AlertJobData {
   projectId: string;
   fingerprint: string;
   isNewGroup: boolean;
-  isRegression?: boolean;
   level: string;
   message: string;
 }

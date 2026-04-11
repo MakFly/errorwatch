@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useCurrentProject } from "@/contexts/ProjectContext";
 import { useCurrentOrganization } from "@/contexts/OrganizationContext";
-import { useGroups, useBatchUpdateStatus, useMergeGroups, useSnoozeGroup } from "@/lib/trpc/hooks";
+import { useGroups, useMergeGroups } from "@/lib/trpc/hooks";
 import {
   IssuesHeader,
   FiltersRow,
@@ -11,11 +11,9 @@ import {
 } from "@/components/issues";
 import { DataTable } from "@/components/ui/data-table";
 import { createIssuesColumns } from "@/components/issues/issues-data-table-columns";
-import type { IssueStatus } from "@/server/api";
 import type { IssueGroup } from "@/components/issues/issues-data-table-columns";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { toast } from "sonner";
-import { detectEventSource } from "@/lib/event-source";
 import { useDebounce } from "@/hooks/useDebounce";
 import { normalizeGroups } from "@/lib/utils/normalize-groups";
 import { Download } from "lucide-react";
@@ -34,8 +32,6 @@ interface FiltersState {
   env: string;
   dateRange: DateRange;
   search: string;
-  status: string;
-  source: string;
   level: string;
 }
 
@@ -48,17 +44,14 @@ export default function IssuesPage() {
     env: "all",
     dateRange: "all",
     search: "",
-    status: "all",
-    source: "all",
     level: "actionable",
   });
+  const [page, setPage] = useState(1);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const debouncedSearch = useDebounce(filters.search, 300);
 
-  const batchUpdate = useBatchUpdateStatus();
   const mergeGroups = useMergeGroups();
-  const snoozeGroup = useSnoozeGroup();
 
   // Compute level filter params
   const levelFilter = useMemo(() => {
@@ -67,26 +60,17 @@ export default function IssuesPage() {
     return { level: filters.level as "fatal" | "error" | "warning" | "info" | "debug" };
   }, [filters.level]);
 
-  // Pass filters to server
   const { data: groupsData, isLoading, error, refetch } = useGroups({
     env: filters.env === "all" ? undefined : filters.env,
     dateRange: filters.dateRange === "all" ? undefined : filters.dateRange,
     projectId: currentProjectId || undefined,
     search: debouncedSearch || undefined,
-    status: filters.status === "all" ? undefined : filters.status as IssueStatus,
+    page,
+    limit: 25,
     ...levelFilter,
   });
 
-  const allGroups = useMemo(() => normalizeGroups<IssueGroup>(groupsData), [groupsData]);
-
-  // Client-side source filter
-  const groups = useMemo(() => {
-    if (filters.source === "all") return allGroups;
-    return allGroups.filter((g) => {
-      const source = detectEventSource(g.url);
-      return source.type === filters.source;
-    });
-  }, [allGroups, filters.source]);
+  const groups = useMemo(() => normalizeGroups<IssueGroup>(groupsData), [groupsData]);
 
   const totalSignals = useMemo(() => {
     if (!groupsData) return 0;
@@ -94,12 +78,16 @@ export default function IssuesPage() {
     return groupsData.total || 0;
   }, [groupsData]);
 
+  const totalPages = useMemo(() => {
+    if (!groupsData) return 1;
+    if (Array.isArray(groupsData)) return 1;
+    return groupsData.totalPages || 1;
+  }, [groupsData]);
+
   const hasActiveFilters =
     filters.env !== "all" ||
     filters.dateRange !== "all" ||
     filters.search !== "" ||
-    filters.status !== "all" ||
-    filters.source !== "all" ||
     filters.level !== "actionable";
 
   const handleClearFilters = () => {
@@ -107,30 +95,14 @@ export default function IssuesPage() {
       env: "all",
       dateRange: "all",
       search: "",
-      status: "all",
-      source: "all",
       level: "actionable",
     });
+    setPage(1);
   };
 
   const selectedFingerprints = useMemo(() => {
     return Object.keys(rowSelection).filter((key) => rowSelection[key]);
   }, [rowSelection]);
-
-  const handleBulkAction = useCallback(
-    async (status: "open" | "resolved" | "ignored") => {
-      if (selectedFingerprints.length === 0) return;
-      try {
-        await batchUpdate.mutateAsync({ fingerprints: selectedFingerprints, status });
-        toast.success(t("updateSuccess", { count: selectedFingerprints.length, status }));
-        setRowSelection({});
-        refetch();
-      } catch {
-        toast.error(t("updateError"));
-      }
-    },
-    [selectedFingerprints, batchUpdate, refetch, t]
-  );
 
   const handleMerge = useCallback(async () => {
     if (selectedFingerprints.length < 2) return;
@@ -146,8 +118,8 @@ export default function IssuesPage() {
   }, [selectedFingerprints, mergeGroups, refetch, t]);
 
   const columns = useMemo(
-    () => createIssuesColumns({ orgSlug: currentOrgSlug || "", projectSlug: currentProjectSlug || "", onStatusChange: refetch }),
-    [currentOrgSlug, currentProjectSlug, refetch]
+    () => createIssuesColumns({ orgSlug: currentOrgSlug || "", projectSlug: currentProjectSlug || "" }),
+    [currentOrgSlug, currentProjectSlug]
   );
 
   if (error) {
@@ -166,60 +138,35 @@ export default function IssuesPage() {
       <div className="flex items-end justify-between gap-4">
         <FiltersRow
           search={filters.search}
-          onSearchChange={(value) => setFilters({ ...filters, search: value })}
+          onSearchChange={(value) => { setFilters({ ...filters, search: value }); setPage(1); }}
           environment={filters.env}
-          onEnvironmentChange={(value) => setFilters({ ...filters, env: value })}
+          onEnvironmentChange={(value) => { setFilters({ ...filters, env: value }); setPage(1); }}
           dateRange={filters.dateRange}
-          onDateRangeChange={(value) =>
-            setFilters({ ...filters, dateRange: value })
-          }
-          status={filters.status}
-          onStatusChange={(value) => setFilters({ ...filters, status: value })}
-          source={filters.source}
-          onSourceChange={(value) => setFilters({ ...filters, source: value })}
+          onDateRangeChange={(value) => { setFilters({ ...filters, dateRange: value }); setPage(1); }}
           level={filters.level}
-          onLevelChange={(value) => setFilters({ ...filters, level: value })}
+          onLevelChange={(value) => { setFilters({ ...filters, level: value }); setPage(1); }}
           onClear={handleClearFilters}
           hasActiveFilters={hasActiveFilters}
           className="flex-1"
         />
-        <ExportDropdown projectId={currentProjectId} dateRange={filters.dateRange} status={filters.status} />
+        <ExportDropdown projectId={currentProjectId} dateRange={filters.dateRange} />
       </div>
 
       {/* Bulk action toolbar */}
       {selectedFingerprints.length > 0 && (
         <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-2 text-sm">
           <span className="font-medium">{t("selected", { count: selectedFingerprints.length })}</span>
-          <span className="text-muted-foreground">|</span>
-          <button
-            onClick={() => handleBulkAction("resolved")}
-            className="text-green-600 hover:underline"
-            disabled={batchUpdate.isPending}
-          >
-            {t("bulkResolve")}
-          </button>
-          <button
-            onClick={() => handleBulkAction("ignored")}
-            className="text-yellow-600 hover:underline"
-            disabled={batchUpdate.isPending}
-          >
-            {t("bulkIgnore")}
-          </button>
-          <button
-            onClick={() => handleBulkAction("open")}
-            className="text-blue-600 hover:underline"
-            disabled={batchUpdate.isPending}
-          >
-            {t("bulkReopen")}
-          </button>
           {selectedFingerprints.length >= 2 && (
-            <button
-              onClick={handleMerge}
-              className="text-purple-600 hover:underline"
-              disabled={mergeGroups.isPending}
-            >
-              {t("bulkMerge")}
-            </button>
+            <>
+              <span className="text-muted-foreground">|</span>
+              <button
+                onClick={handleMerge}
+                className="text-purple-600 hover:underline"
+                disabled={mergeGroups.isPending}
+              >
+                {t("bulkMerge")}
+              </button>
+            </>
           )}
         </div>
       )}
@@ -231,7 +178,7 @@ export default function IssuesPage() {
         showSearch={false}
         showColumnToggle
         enableRowSelection
-        pageSize={15}
+        pageSize={25}
         className="w-full"
         getRowId={(group: any) => group.fingerprint}
         onRowSelectionChange={setRowSelection}
@@ -242,6 +189,33 @@ export default function IssuesPage() {
             : t("noSignals")
         }
       />
+
+      {/* Server-side pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            Page {page} of {totalPages} ({totalSignals} total)
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || isLoading}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || isLoading}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -251,11 +225,9 @@ import { getMonitoringApiUrl } from "@/lib/config";
 function ExportDropdown({
   projectId,
   dateRange,
-  status,
 }: {
   projectId: string | null;
   dateRange: string;
-  status: string;
 }) {
   const t = useTranslations("issues.page");
 
@@ -264,7 +236,6 @@ function ExportDropdown({
     if (!projectId) return;
     const params = new URLSearchParams({ projectId, format });
     if (dateRange !== "all") params.set("dateRange", dateRange);
-    if (status !== "all") params.set("status", status);
     window.open(`${apiUrl}/api/v1/export/errors?${params.toString()}`, "_blank");
   };
 

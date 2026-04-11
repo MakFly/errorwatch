@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -8,6 +8,9 @@ import { useCurrentProject } from "@/contexts/ProjectContext";
 import { usePerformanceQueries } from "@/hooks/usePerformanceQueries";
 import { ApdexGauge } from "@/components/performance/ApdexGauge";
 import { SpanBreakdownOverview, WebVitalsCards } from "@/components/performance";
+import { MetricRibbon } from "@/components/performance/MetricRibbon";
+import { ThroughputChart } from "@/components/performance/ThroughputChart";
+import { DurationChart } from "@/components/performance/DurationChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -16,94 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
 import { ArrowRight, Database, Globe, List } from "lucide-react";
 import type { PerformanceDateRange } from "@/server/api/types";
 
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  const idx = Math.ceil((p / 100) * sorted.length) - 1;
-  return sorted[Math.max(0, idx)];
-}
-
 function formatMs(ms: number): string {
   if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`;
-  return `${ms}ms`;
-}
-
-function ServerPerformanceSummary({
-  durations,
-  throughput,
-  errorRate,
-}: {
-  durations: number[];
-  throughput?: number;
-  errorRate?: number;
-}) {
-  const t = useTranslations("performance");
-
-  const stats = useMemo(() => {
-    const sorted = [...durations].sort((a, b) => a - b);
-    return {
-      p50: percentile(sorted, 50),
-      p95: percentile(sorted, 95),
-      p99: percentile(sorted, 99),
-      count: sorted.length,
-    };
-  }, [durations]);
-
-  const cards = [
-    { label: "p50", value: formatMs(stats.p50), sub: `${stats.count} txn${stats.count !== 1 ? "s" : ""}` },
-    { label: "p95", value: formatMs(stats.p95) },
-    { label: "p99", value: formatMs(stats.p99) },
-  ];
-
-  if (throughput !== undefined) {
-    cards.push({ label: "Throughput", value: `${throughput.toFixed(1)}/min`, sub: t("throughputUnit") });
-  }
-
-  if (errorRate !== undefined) {
-    cards.push({
-      label: "Error Rate",
-      value: `${errorRate}%`,
-      sub: errorRate > 5 ? t("aboveThreshold") : undefined,
-    });
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-      {cards.map(({ label, value, sub }) => (
-        <Card key={label}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {label === "Error Rate" ? t("errorRate") : t("serverResponseTime", { label })}
-              {label === "Throughput" && (
-                <span className="block text-xs text-muted-foreground/60 font-normal">{t("throughputLabel")}</span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold font-mono ${
-              label === "Error Rate" && errorRate !== undefined && errorRate > 5
-                ? "text-red-500"
-                : ""
-            }`}>
-              {value}
-            </p>
-            {sub && (
-              <p className={`mt-1 text-xs ${
-                label === "Error Rate" && errorRate !== undefined && errorRate > 5
-                  ? "text-red-400"
-                  : "text-muted-foreground"
-              }`}>
-                {sub}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
+  return `${Math.round(ms)}ms`;
 }
 
 export default function PerformancePage() {
@@ -119,8 +40,15 @@ export default function PerformancePage() {
   const platform = currentProject?.platform ?? "";
   const isServerSide = ["symfony", "laravel", "nodejs", "hono", "fastify"].includes(platform);
 
-  const { webVitals, transactionsData, spanAnalysis, apdexData, serverStats } =
-    usePerformanceQueries(currentProjectId, dateRange, isServerSide);
+  const {
+    webVitals,
+    transactionsData,
+    spanAnalysis,
+    apdexData,
+    serverStats,
+    throughputTimeline,
+    durationTimeline,
+  } = usePerformanceQueries(currentProjectId, dateRange, isServerSide);
 
   const isLoading = projectLoading || (!isServerSide && webVitals.isLoading);
 
@@ -149,6 +77,43 @@ export default function PerformancePage() {
     },
   ];
 
+  // Build MetricRibbon metrics from serverStats + apdexData
+  const ribbonMetrics = serverStats.data
+    ? [
+        {
+          label: "Throughput", // TODO: i18n
+          value: `${serverStats.data.throughput.toFixed(1)}/min`,
+          sub: t("throughputUnit"),
+        },
+        {
+          label: "Avg Latency", // TODO: i18n
+          value: formatMs(serverStats.data.avgDuration),
+        },
+        {
+          label: t("errorRate"),
+          value: `${serverStats.data.errorRate}%`,
+          sub:
+            serverStats.data.errorRate > 5 ? t("aboveThreshold") : undefined,
+          alert: serverStats.data.errorRate > 5,
+        },
+        {
+          label: "Apdex", // TODO: i18n
+          value: apdexData.data ? apdexData.data.score.toFixed(2) : "—",
+          sub: apdexData.data
+            ? `${apdexData.data.satisfied} satisfied`
+            : undefined,
+        },
+        {
+          label: "Total", // TODO: i18n
+          value: serverStats.data.totalTransactions.toLocaleString(),
+          sub: t("transactions.title"),
+        },
+      ]
+    : [];
+
+  const hasTransactions =
+    transactionsData.data && transactionsData.data.transactions.length > 0;
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
       {/* Header */}
@@ -172,17 +137,40 @@ export default function PerformancePage() {
         </Select>
       </div>
 
-      {/* Server-side summary */}
+      {/* Server-side view */}
       {isServerSide && (
         <>
-          {transactionsData.data && transactionsData.data.transactions.length > 0 && (
-            <ServerPerformanceSummary
-              durations={transactionsData.data.transactions.map((t) => t.duration)}
-              throughput={serverStats.data?.throughput}
-              errorRate={serverStats.data?.errorRate}
-            />
+          {/* Empty state */}
+          {!hasTransactions && !serverStats.isLoading && (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                {/* TODO: i18n */}
+                No transactions recorded yet. Install an SDK to start tracking performance.
+              </p>
+            </div>
           )}
 
+          {/* MetricRibbon */}
+          <MetricRibbon
+            metrics={ribbonMetrics}
+            isLoading={serverStats.isLoading || apdexData.isLoading}
+          />
+
+          {/* Charts row */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ThroughputChart
+              data={throughputTimeline.data ?? []}
+              isLoading={throughputTimeline.isLoading}
+              dateRange={dateRange}
+            />
+            <DurationChart
+              data={durationTimeline.data ?? []}
+              isLoading={durationTimeline.isLoading}
+              dateRange={dateRange}
+            />
+          </div>
+
+          {/* Apdex + SpanBreakdown */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ApdexGauge data={apdexData.data} isLoading={apdexData.isLoading} />
             <SpanBreakdownOverview
@@ -193,17 +181,24 @@ export default function PerformancePage() {
         </>
       )}
 
-      {/* Client-side summary */}
+      {/* Client-side (frontend) view */}
       {!isServerSide && (
         <>
           <WebVitalsCards vitals={webVitals.data || []} />
-          {(!webVitals.data || webVitals.data.length === 0) &&
-            transactionsData.data &&
-            transactionsData.data.transactions.length > 0 && (
-              <ServerPerformanceSummary
-                durations={transactionsData.data.transactions.map((t) => t.duration)}
-              />
-            )}
+
+          {/* Charts row — always show for frontend too */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ThroughputChart
+              data={throughputTimeline.data ?? []}
+              isLoading={throughputTimeline.isLoading}
+              dateRange={dateRange}
+            />
+            <DurationChart
+              data={durationTimeline.data ?? []}
+              isLoading={durationTimeline.isLoading}
+              dateRange={dateRange}
+            />
+          </div>
         </>
       )}
 

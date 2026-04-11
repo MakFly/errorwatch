@@ -51,19 +51,6 @@ export type ErrorAlertEmailData = {
   dashboardUrl: string;
 };
 
-export type RegressionAlertEmailData = {
-  to: string;
-  projectName: string;
-  errorMessage: string;
-  errorFile: string;
-  errorLine: number;
-  eventCount: number;
-  fingerprint: string;
-  environment?: string;
-  resolvedAt?: string;
-  dashboardUrl: string;
-};
-
 export type InvitationEmailData = {
   to: string;
   inviterName: string;
@@ -71,8 +58,6 @@ export type InvitationEmailData = {
   inviteUrl: string;
   expiresIn: string;
 };
-
-export type IssueStatus = "open" | "resolved" | "ignored" | "snoozed";
 
 export type PlanType = "free" | "pro" | "team" | "enterprise";
 

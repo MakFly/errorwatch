@@ -12,10 +12,6 @@ import {
   Calendar,
   Clock,
   Activity,
-  CheckCircle2,
-  EyeOff,
-  RotateCcw,
-  CircleDot,
 } from "lucide-react";
 import Sparkline from "@/components/Sparkline";
 import { AssigneeDropdown } from "./AssigneeDropdown";
@@ -37,18 +33,13 @@ interface SignalProfileProps {
   count: number;
   firstSeen: Date | string;
   lastSeen: Date | string;
-  status: "open" | "resolved" | "ignored";
   statusCode?: number | null;
   sparklineData: number[];
   projectSlug: string;
-  onStatusChange: (status: "open" | "resolved" | "ignored") => void;
-  isUpdating?: boolean;
   className?: string;
   // Assignment props
   assignedTo?: string | null;
   assignedAt?: Date | string | null;
-  resolvedBy?: string | null;
-  resolvedAt?: Date | string | null;
   members?: Member[];
   onAssign?: (userId: string | null) => void;
   isAssigning?: boolean;
@@ -143,16 +134,11 @@ export function SignalProfile({
   count,
   firstSeen,
   lastSeen,
-  status,
   statusCode,
   sparklineData,
   projectSlug,
-  onStatusChange,
-  isUpdating,
   className,
   assignedTo,
-  resolvedBy,
-  resolvedAt,
   members = [],
   onAssign,
   isAssigning,
@@ -163,11 +149,6 @@ export function SignalProfile({
   // Find current assignee from members list
   const currentAssignee = assignedTo
     ? members.find((m) => m.id === assignedTo) || { id: assignedTo, name: null }
-    : null;
-
-  // Find resolver from members list
-  const resolver = resolvedBy
-    ? members.find((m) => m.id === resolvedBy)
     : null;
 
   return (
@@ -224,27 +205,6 @@ export function SignalProfile({
               {statusCode ? `${statusCode} ${config.label}` : config.label}
             </span>
           </div>
-
-          {/* Status badge */}
-          <span
-            className={cn(
-              "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold uppercase tracking-wider",
-              status === "resolved"
-                ? "border-signal-info/30 bg-signal-info/10 text-signal-info"
-                : status === "ignored"
-                ? "border-muted-foreground/30 bg-muted/10 text-muted-foreground"
-                : "border-pulse-primary/30 bg-pulse-primary/10 text-pulse-primary"
-            )}
-          >
-            {status === "resolved" ? (
-              <CheckCircle2 className="h-3 w-3" />
-            ) : status === "ignored" ? (
-              <EyeOff className="h-3 w-3" />
-            ) : (
-              <CircleDot className="h-3 w-3" />
-            )}
-            {status}
-          </span>
         </div>
 
         {/* Error message */}
@@ -318,72 +278,17 @@ export function SignalProfile({
           <CopyButton text={`${file}:${line}`} />
         </div>
 
-        {/* Actions row */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Left: Status actions */}
-          <div className="flex flex-wrap items-center gap-2">
-            {status === "open" && (
-              <>
-                <button
-                  onClick={() => onStatusChange("resolved")}
-                  disabled={isUpdating}
-                  className="inline-flex items-center gap-2 rounded-lg border border-signal-info/30 bg-signal-info/10 px-4 py-2 text-sm font-medium text-signal-info transition-colors hover:bg-signal-info/20 disabled:opacity-50"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Resolve
-                </button>
-                <button
-                  onClick={() => onStatusChange("ignored")}
-                  disabled={isUpdating}
-                  className="inline-flex items-center gap-2 rounded-lg border border-issues-border bg-issues-surface px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-issues-border hover:text-foreground disabled:opacity-50"
-                >
-                  <EyeOff className="h-4 w-4" />
-                  Ignore
-                </button>
-              </>
-            )}
-            {status === "resolved" && (
-              <>
-                <button
-                  onClick={() => onStatusChange("open")}
-                  disabled={isUpdating}
-                  className="inline-flex items-center gap-2 rounded-lg border border-issues-border bg-issues-surface px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-issues-border hover:text-foreground disabled:opacity-50"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Reopen
-                </button>
-                {/* Resolved by indicator */}
-                {resolver && resolvedAt && (
-                  <span className="text-xs text-muted-foreground">
-                    Resolved by <span className="font-medium text-foreground">{resolver.name || "Unknown"}</span>
-                    {" • "}
-                    {formatTimeAgo(resolvedAt)}
-                  </span>
-                )}
-              </>
-            )}
-            {status === "ignored" && (
-              <button
-                onClick={() => onStatusChange("open")}
-                disabled={isUpdating}
-                className="inline-flex items-center gap-2 rounded-lg border border-issues-border bg-issues-surface px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-issues-border hover:text-foreground disabled:opacity-50"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Unignore
-              </button>
-            )}
-          </div>
-
-          {/* Right: Assignment */}
-          {onAssign && members.length > 0 && (
+        {/* Assignment */}
+        {onAssign && members.length > 0 && (
+          <div className="flex justify-end">
             <AssigneeDropdown
               currentAssignee={currentAssignee}
               members={members}
               onAssign={onAssign}
               isLoading={isAssigning}
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

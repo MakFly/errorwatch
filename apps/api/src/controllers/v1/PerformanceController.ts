@@ -467,6 +467,7 @@ export const getTransactions = async (c: AuthContext) => {
   const userId = c.get("userId");
   const projectId = c.req.query("projectId");
   const op = c.req.query("op") as string | undefined;
+  const dateRange = c.req.query("dateRange") as ExtendedDateRange | undefined;
   const page = parseInt(c.req.query("page") || "1", 10);
   const limit = parseInt(c.req.query("limit") || "20", 10);
 
@@ -486,6 +487,10 @@ export const getTransactions = async (c: AuthContext) => {
 
   if (op) {
     conditions.push(eq(transactions.op, op));
+  }
+
+  if (dateRange) {
+    conditions.push(gte(transactions.startTimestamp, getStartDate(dateRange)));
   }
 
   const results = await db
@@ -1071,4 +1076,212 @@ export const getSlowestTransactions = async (c: AuthContext) => {
     maxDuration: Number(t.maxDuration),
     count: Number(t.count),
   })));
+};
+
+/**
+ * Get throughput timeline — bucketed transaction counts over time.
+ * Output: Array<{ bucket: string; count: number; errorCount: number }>
+ */
+export const getThroughputTimeline = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const dateRange = (c.req.query("dateRange") as ExtendedDateRange | undefined) ?? "24h";
+  const name = c.req.query("name") as string | undefined;
+
+  if (!projectId) {
+    return c.json({ error: "projectId required", code: "MISSING_PROJECT_ID" }, 400);
+  }
+
+  const hasAccess = await verifyProjectAccess(projectId, userId);
+  if (!hasAccess) {
+    return c.json({ error: "Access denied", code: "FORBIDDEN" }, 403);
+  }
+
+  const startDate = getStartDate(dateRange);
+  const source = getAggregationSource(dateRange);
+
+  let rows: { bucket: string; count: number; errorCount: number }[];
+
+  if (source === "raw") {
+    // 24h — group raw transactions by hour
+    const conditions = [
+      eq(transactions.projectId, projectId),
+      gte(transactions.startTimestamp, startDate),
+    ];
+    if (name) conditions.push(eq(transactions.name, name));
+
+    const results = await db
+      .select({
+        bucket: sql<string>`date_trunc('hour', ${transactions.startTimestamp})`,
+        count: sql<number>`count(*)`,
+        errorCount: sql<number>`count(*) filter (where ${transactions.status} = 'error')`,
+      })
+      .from(transactions)
+      .where(and(...conditions))
+      .groupBy(sql`date_trunc('hour', ${transactions.startTimestamp})`)
+      .orderBy(sql`date_trunc('hour', ${transactions.startTimestamp}) ASC`);
+
+    rows = results.map((r) => ({
+      bucket: String(r.bucket),
+      count: Number(r.count),
+      errorCount: Number(r.errorCount),
+    }));
+  } else if (source === "hourly") {
+    // 7d — group hourly aggregates by 6-hour buckets
+    const conditions = [
+      eq(transactionAggregatesHourly.projectId, projectId),
+      gte(transactionAggregatesHourly.hourBucket, startDate),
+    ];
+    if (name) conditions.push(eq(transactionAggregatesHourly.name, name));
+
+    const results = await db
+      .select({
+        bucket: sql<string>`date_trunc('day', ${transactionAggregatesHourly.hourBucket}) + INTERVAL '6 hours' * FLOOR(EXTRACT(HOUR FROM ${transactionAggregatesHourly.hourBucket}) / 6)`,
+        count: sql<number>`SUM(${transactionAggregatesHourly.count})`,
+        errorCount: sql<number>`SUM(${transactionAggregatesHourly.errorCount})`,
+      })
+      .from(transactionAggregatesHourly)
+      .where(and(...conditions))
+      .groupBy(sql`date_trunc('day', ${transactionAggregatesHourly.hourBucket}) + INTERVAL '6 hours' * FLOOR(EXTRACT(HOUR FROM ${transactionAggregatesHourly.hourBucket}) / 6)`)
+      .orderBy(sql`date_trunc('day', ${transactionAggregatesHourly.hourBucket}) + INTERVAL '6 hours' * FLOOR(EXTRACT(HOUR FROM ${transactionAggregatesHourly.hourBucket}) / 6) ASC`);
+
+    rows = results.map((r) => ({
+      bucket: String(r.bucket),
+      count: Number(r.count),
+      errorCount: Number(r.errorCount),
+    }));
+  } else {
+    // 30d+ — group daily aggregates by day
+    const conditions = [
+      eq(transactionAggregatesDaily.projectId, projectId),
+      gte(transactionAggregatesDaily.dayBucket, startDate),
+    ];
+    if (name) conditions.push(eq(transactionAggregatesDaily.name, name));
+
+    const results = await db
+      .select({
+        bucket: transactionAggregatesDaily.dayBucket,
+        count: sql<number>`SUM(${transactionAggregatesDaily.count})`,
+        errorCount: sql<number>`SUM(${transactionAggregatesDaily.errorCount})`,
+      })
+      .from(transactionAggregatesDaily)
+      .where(and(...conditions))
+      .groupBy(transactionAggregatesDaily.dayBucket)
+      .orderBy(transactionAggregatesDaily.dayBucket);
+
+    rows = results.map((r) => ({
+      bucket: String(r.bucket),
+      count: Number(r.count),
+      errorCount: Number(r.errorCount),
+    }));
+  }
+
+  return c.json(rows);
+};
+
+/**
+ * Get duration timeline — bucketed p50/p75/p95 percentiles over time.
+ * Output: Array<{ bucket: string; p50: number; p75: number; p95: number }>
+ */
+export const getDurationTimeline = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const dateRange = (c.req.query("dateRange") as ExtendedDateRange | undefined) ?? "24h";
+  const name = c.req.query("name") as string | undefined;
+
+  if (!projectId) {
+    return c.json({ error: "projectId required", code: "MISSING_PROJECT_ID" }, 400);
+  }
+
+  const hasAccess = await verifyProjectAccess(projectId, userId);
+  if (!hasAccess) {
+    return c.json({ error: "Access denied", code: "FORBIDDEN" }, 403);
+  }
+
+  const startDate = getStartDate(dateRange);
+  const source = getAggregationSource(dateRange);
+
+  let rows: { bucket: string; p50: number; p75: number; p95: number }[];
+
+  if (source === "raw") {
+    // 24h — compute percentiles from raw transactions per hour
+    const conditions = [
+      eq(transactions.projectId, projectId),
+      gte(transactions.startTimestamp, startDate),
+    ];
+    if (name) conditions.push(eq(transactions.name, name));
+
+    const results = await db
+      .select({
+        bucket: sql<string>`date_trunc('hour', ${transactions.startTimestamp})`,
+        p50: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ${transactions.duration})`,
+        p75: sql<number>`PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ${transactions.duration})`,
+        p95: sql<number>`PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ${transactions.duration})`,
+      })
+      .from(transactions)
+      .where(and(...conditions))
+      .groupBy(sql`date_trunc('hour', ${transactions.startTimestamp})`)
+      .orderBy(sql`date_trunc('hour', ${transactions.startTimestamp}) ASC`);
+
+    rows = results.map((r) => ({
+      bucket: String(r.bucket),
+      p50: Math.round(Number(r.p50)),
+      p75: Math.round(Number(r.p75)),
+      p95: Math.round(Number(r.p95)),
+    }));
+  } else if (source === "hourly") {
+    // 7d — use pre-computed percentiles from hourly aggregates, grouped by 6h
+    const conditions = [
+      eq(transactionAggregatesHourly.projectId, projectId),
+      gte(transactionAggregatesHourly.hourBucket, startDate),
+    ];
+    if (name) conditions.push(eq(transactionAggregatesHourly.name, name));
+
+    const results = await db
+      .select({
+        bucket: sql<string>`date_trunc('day', ${transactionAggregatesHourly.hourBucket}) + INTERVAL '6 hours' * FLOOR(EXTRACT(HOUR FROM ${transactionAggregatesHourly.hourBucket}) / 6)`,
+        p50: sql<number>`CASE WHEN SUM(${transactionAggregatesHourly.count}) > 0 THEN SUM(${transactionAggregatesHourly.durationP50} * ${transactionAggregatesHourly.count}) / SUM(${transactionAggregatesHourly.count}) ELSE 0 END`,
+        p75: sql<number>`CASE WHEN SUM(${transactionAggregatesHourly.count}) > 0 THEN SUM(${transactionAggregatesHourly.durationP75} * ${transactionAggregatesHourly.count}) / SUM(${transactionAggregatesHourly.count}) ELSE 0 END`,
+        p95: sql<number>`MAX(${transactionAggregatesHourly.durationP95})`,
+      })
+      .from(transactionAggregatesHourly)
+      .where(and(...conditions))
+      .groupBy(sql`date_trunc('day', ${transactionAggregatesHourly.hourBucket}) + INTERVAL '6 hours' * FLOOR(EXTRACT(HOUR FROM ${transactionAggregatesHourly.hourBucket}) / 6)`)
+      .orderBy(sql`date_trunc('day', ${transactionAggregatesHourly.hourBucket}) + INTERVAL '6 hours' * FLOOR(EXTRACT(HOUR FROM ${transactionAggregatesHourly.hourBucket}) / 6) ASC`);
+
+    rows = results.map((r) => ({
+      bucket: String(r.bucket),
+      p50: Math.round(Number(r.p50)),
+      p75: Math.round(Number(r.p75)),
+      p95: Math.round(Number(r.p95)),
+    }));
+  } else {
+    // 30d+ — use pre-computed percentiles from daily aggregates
+    const conditions = [
+      eq(transactionAggregatesDaily.projectId, projectId),
+      gte(transactionAggregatesDaily.dayBucket, startDate),
+    ];
+    if (name) conditions.push(eq(transactionAggregatesDaily.name, name));
+
+    const results = await db
+      .select({
+        bucket: transactionAggregatesDaily.dayBucket,
+        p50: sql<number>`CASE WHEN SUM(${transactionAggregatesDaily.count}) > 0 THEN SUM(${transactionAggregatesDaily.durationP50} * ${transactionAggregatesDaily.count}) / SUM(${transactionAggregatesDaily.count}) ELSE 0 END`,
+        p75: sql<number>`CASE WHEN SUM(${transactionAggregatesDaily.count}) > 0 THEN SUM(${transactionAggregatesDaily.durationP75} * ${transactionAggregatesDaily.count}) / SUM(${transactionAggregatesDaily.count}) ELSE 0 END`,
+        p95: sql<number>`MAX(${transactionAggregatesDaily.durationP95})`,
+      })
+      .from(transactionAggregatesDaily)
+      .where(and(...conditions))
+      .groupBy(transactionAggregatesDaily.dayBucket)
+      .orderBy(transactionAggregatesDaily.dayBucket);
+
+    rows = results.map((r) => ({
+      bucket: String(r.bucket),
+      p50: Math.round(Number(r.p50)),
+      p75: Math.round(Number(r.p75)),
+      p95: Math.round(Number(r.p95)),
+    }));
+  }
+
+  return c.json(rows);
 };

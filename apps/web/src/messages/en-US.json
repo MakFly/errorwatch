@@ -267,7 +267,8 @@
       }
     },
     "slowestTransactions": {
-      "title": "Slowest Transactions"
+      "title": "Slowest Transactions",
+      "noData": "No slow transactions found."
     },
     "webVitals": {
       "title": "Web Vitals",
@@ -284,7 +285,10 @@
         "CLS": "Visual stability",
         "TTFB": "Server response",
         "INP": "Responsiveness"
-      }
+      },
+      "serverSideTitle": "Server-Side Project",
+      "serverSideMessage": "This project uses a server-side platform ({platform}). Web Vitals measure browser performance (LCP, FID, CLS) and apply to frontend projects.",
+      "serverSideHint": "Check these instead:"
     },
     "apdex": {
       "title": "Apdex Score",
@@ -362,8 +366,21 @@
         "normal": "Normal",
         "repeated": "Repeated",
         "n1Suspect": "N+1 Suspect"
+      },
+      "tabs": {
+        "overview": "Overview",
+        "spans": "Spans"
+      },
+      "spanFilter": {
+        "all": "All"
       }
-    }
+    },
+    "spanBreakdown": "Span Breakdown",
+    "throughput": "Throughput",
+    "responseTime": "Response Time",
+    "avgLatency": "Avg Latency",
+    "totalTransactions": "Total",
+    "noTransactionsHint": "No transactions recorded yet. Install an SDK to start tracking performance."
   },
   "replays": {
     "title": "Session Replays",
@@ -894,8 +911,6 @@
     "row": {
       "fullMessage": "Full Message",
       "quickActions": "Quick Actions",
-      "resolve": "Resolve",
-      "ignore": "Ignore",
       "viewDetails": "View Details",
       "sourceLocation": "Source Location",
       "events": "events"
@@ -912,10 +927,6 @@
       "last7d": "Last 7 days",
       "last30d": "Last 30 days",
       "last90d": "Last 90 days",
-      "allStatus": "All status",
-      "open": "Open",
-      "resolved": "Resolved",
-      "ignored": "Ignored",
       "allSources": "All sources",
       "sourceHTTP": "HTTP",
       "sourceCLI": "CLI",
@@ -932,17 +943,12 @@
     },
     "page": {
       "selected": "{count} selected",
-      "bulkResolve": "Resolve",
-      "bulkIgnore": "Ignore",
-      "bulkReopen": "Reopen",
       "bulkMerge": "Merge",
       "exportButton": "Export",
       "exportCSV": "Export CSV",
       "exportJSON": "Export JSON",
       "noMatchingSignals": "No matching signals found. Try adjusting your filters.",
       "noSignals": "No signals detected. Your application is running smoothly.",
-      "updateSuccess": "{count} issue(s) updated to {status}",
-      "updateError": "Failed to update issues",
       "mergeSuccess": "Merged {count} issue(s) into 1",
       "mergeError": "Failed to merge issues"
     }
@@ -954,11 +960,6 @@
       "firstSeen": "First seen",
       "lastSeen": "Last seen",
       "trend": "Trend",
-      "resolve": "Resolve",
-      "ignore": "Ignore",
-      "reopen": "Reopen",
-      "unignore": "Unignore",
-      "resolvedBy": "Resolved by",
       "justNow": "just now",
       "minutesAgo": "{n}m ago",
       "hoursAgo": "{n}h ago",
@@ -996,7 +997,10 @@
       "release": "Release",
       "context": "Context",
       "firstSeenIn": "First seen in",
-      "noContext": "No context data available"
+      "noContext": "No context data available",
+      "browser": "Browser",
+      "os": "OS",
+      "runtime": "Runtime"
     },
     "occurrenceChart": {
       "occurrences": "Occurrences",
@@ -1065,13 +1069,8 @@
     },
     "header": {
       "issues": "issues",
-      "resolve": "Resolve",
-      "ignore": "Ignore",
-      "reopen": "Reopen",
-      "unignore": "Unignore",
       "assign": "Assign",
-      "unassign": "Unassign",
-      "by": "by"
+      "unassign": "Unassign"
     }
   },
   "marketing": {

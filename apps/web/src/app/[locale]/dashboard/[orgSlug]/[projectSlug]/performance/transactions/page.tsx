@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { useCurrentProject } from "@/contexts/ProjectContext";
 import { trpc } from "@/lib/trpc/client";
 import { TransactionsDataTable, SlowestTable } from "@/components/performance/TransactionsDataTable";
+import { ThroughputChart } from "@/components/performance/ThroughputChart";
+import { DurationChart } from "@/components/performance/DurationChart";
 import {
   Select,
   SelectContent,
@@ -28,14 +30,24 @@ export default function TransactionsPage() {
 
   const { data: transactionsData, isLoading: transactionsLoading } =
     trpc.performance.getTransactions.useQuery(
-      {
-        projectId: currentProjectId!,
-      },
+      { projectId: currentProjectId!, dateRange },
       { enabled: !!currentProjectId }
     );
 
   const { data: slowest, isLoading: slowestLoading } =
     trpc.performance.getSlowest.useQuery(
+      { projectId: currentProjectId!, dateRange },
+      { enabled: !!currentProjectId }
+    );
+
+  const { data: throughputData, isLoading: throughputLoading } =
+    trpc.performance.getThroughputTimeline.useQuery(
+      { projectId: currentProjectId!, dateRange },
+      { enabled: !!currentProjectId }
+    );
+
+  const { data: durationData, isLoading: durationLoading } =
+    trpc.performance.getDurationTimeline.useQuery(
       { projectId: currentProjectId!, dateRange },
       { enabled: !!currentProjectId }
     );
@@ -65,6 +77,20 @@ export default function TransactionsPage() {
             <SelectItem value="1y">{t("dateRange.lastYear")}</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ThroughputChart
+          data={throughputData ?? []}
+          isLoading={throughputLoading}
+          dateRange={dateRange}
+        />
+        <DurationChart
+          data={durationData ?? []}
+          isLoading={durationLoading}
+          dateRange={dateRange}
+        />
       </div>
 
       {/* Tabs */}

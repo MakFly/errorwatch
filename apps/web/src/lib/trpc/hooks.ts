@@ -11,12 +11,12 @@ interface GroupsFilter {
   dateRange?: "24h" | "7d" | "30d" | "90d" | "all";
   projectId?: string;
   search?: string;
-  status?: "open" | "resolved" | "ignored" | "snoozed";
   level?: "fatal" | "error" | "warning" | "info" | "debug";
   levels?: string[];
   sort?: "lastSeen" | "firstSeen" | "count";
   page?: number;
   limit?: number;
+  cursor?: string;
 }
 
 export const useGroups = (filters?: GroupsFilter) => {
@@ -36,20 +36,12 @@ export const useGroups = (filters?: GroupsFilter) => {
   };
 };
 
-export const useBatchUpdateStatus = () => {
-  return trpc.groups.batchUpdateStatus.useMutation();
-};
-
 export const useMergeGroups = () => {
   return trpc.groups.merge.useMutation();
 };
 
 export const useUnmergeGroup = () => {
   return trpc.groups.unmerge.useMutation();
-};
-
-export const useSnoozeGroup = () => {
-  return trpc.groups.snooze.useMutation();
 };
 
 export const useGroup = (fingerprint: string) => {
@@ -150,10 +142,6 @@ export const useAcceptInvite = () => {
 
 export const useRemoveMember = () => {
   return trpc.members.remove.useMutation();
-};
-
-export const useUpdateGroupStatus = () => {
-  return trpc.groups.updateStatus.useMutation();
 };
 
 // Replay Sessions hooks

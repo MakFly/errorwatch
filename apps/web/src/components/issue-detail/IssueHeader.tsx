@@ -4,16 +4,13 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
-  CheckCircle2,
-  EyeOff,
-  RotateCcw,
   ChevronDown,
   Copy,
   Check,
   User,
 } from "lucide-react";
 import { useState, useRef } from "react";
-import type { ErrorLevel, IssueStatus } from "@/server/api";
+import type { ErrorLevel } from "@/server/api";
 import { useTranslations } from "next-intl";
 
 interface Member {
@@ -28,20 +25,14 @@ interface IssueHeaderProps {
   file: string;
   line: number;
   level: ErrorLevel;
-  status: IssueStatus;
   statusCode?: number | null;
   orgSlug: string;
   projectSlug: string;
-  onStatusChange: (status: IssueStatus) => void;
-  isUpdating?: boolean;
   // Assignment
   assignedTo?: string | null;
   members?: Member[];
   onAssign?: (userId: string | null) => void;
   isAssigning?: boolean;
-  // Resolution
-  resolvedBy?: string | null;
-  resolvedAt?: Date | string | null;
 }
 
 const levelConfig: Record<ErrorLevel, { label: string; class: string }> = {
@@ -65,13 +56,6 @@ const levelConfig: Record<ErrorLevel, { label: string; class: string }> = {
     label: "DEBUG",
     class: "bg-signal-debug/20 text-signal-debug border-signal-debug/50",
   },
-};
-
-const statusConfig: Record<IssueStatus, { label: string; class: string }> = {
-  open: { label: "OPEN", class: "bg-pulse-primary/20 text-pulse-primary border-pulse-primary/40" },
-  resolved: { label: "RESOLVED", class: "bg-signal-info/20 text-signal-info border-signal-info/40" },
-  ignored: { label: "IGNORED", class: "bg-muted/20 text-muted-foreground border-muted" },
-  snoozed: { label: "SNOOZED", class: "bg-yellow-500/20 text-yellow-600 border-yellow-500/40" },
 };
 
 // Parse exception type from message (e.g., "TypeError: Cannot read property 'x'")
@@ -207,23 +191,16 @@ export function IssueHeader({
   file,
   line,
   level,
-  status,
   statusCode,
   orgSlug,
   projectSlug,
-  onStatusChange,
-  isUpdating,
   assignedTo,
   members = [],
   onAssign,
   isAssigning,
-  resolvedBy,
-  resolvedAt,
 }: IssueHeaderProps) {
   const t = useTranslations("issueDetail.header");
   const levelCfg = levelConfig[level];
-  const statusCfg = statusConfig[status];
-  const resolver = members.find(m => m.id === resolvedBy);
   const { type: exceptionType, cleanMessage } = parseExceptionType(message);
 
   return (
@@ -240,30 +217,21 @@ export function IssueHeader({
         )} />
 
         <div className="p-6">
-          {/* Navigation + Level + Status */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Link
-                href={`/dashboard/${orgSlug}/${projectSlug}/issues`}
-                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-sm"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="font-mono">{t("issues")}</span>
-              </Link>
-
-              <span className={cn(
-                "px-2 py-0.5 rounded border font-mono text-xs font-bold tracking-wider",
-                levelCfg.class
-              )}>
-                {statusCode ? `${statusCode} ${levelCfg.label}` : levelCfg.label}
-              </span>
-            </div>
+          {/* Navigation + Level */}
+          <div className="flex items-center gap-4 mb-4">
+            <Link
+              href={`/dashboard/${orgSlug}/${projectSlug}/issues`}
+              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-sm"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="font-mono">{t("issues")}</span>
+            </Link>
 
             <span className={cn(
-              "px-2 py-0.5 rounded border font-mono text-[10px] font-bold tracking-widest",
-              statusCfg.class
+              "px-2 py-0.5 rounded border font-mono text-xs font-bold tracking-wider",
+              levelCfg.class
             )}>
-              {statusCfg.label}
+              {statusCode ? `${statusCode} ${levelCfg.label}` : levelCfg.label}
             </span>
           </div>
 
@@ -290,57 +258,7 @@ export function IssueHeader({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              {status === "open" && (
-                <>
-                  <button
-                    onClick={() => onStatusChange("resolved")}
-                    disabled={isUpdating}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-medium hover:bg-emerald-500/20 transition-all disabled:opacity-50"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    {t("resolve")}
-                  </button>
-                  <button
-                    onClick={() => onStatusChange("ignored")}
-                    disabled={isUpdating}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/10 border border-issues-border text-muted-foreground font-mono text-xs font-medium hover:bg-muted/20 hover:text-foreground transition-all disabled:opacity-50"
-                  >
-                    <EyeOff className="h-4 w-4" />
-                    {t("ignore")}
-                  </button>
-                </>
-              )}
-              {status === "resolved" && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => onStatusChange("open")}
-                    disabled={isUpdating}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/10 border border-issues-border text-muted-foreground font-mono text-xs font-medium hover:bg-muted/20 hover:text-foreground transition-all disabled:opacity-50"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    {t("reopen")}
-                  </button>
-                  {resolver && resolvedAt && (
-                    <span className="text-xs text-muted-foreground">
-                      {t("by")} <span className="text-foreground">{resolver.name}</span>
-                    </span>
-                  )}
-                </div>
-              )}
-              {status === "ignored" && (
-                <button
-                  onClick={() => onStatusChange("open")}
-                  disabled={isUpdating}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/10 border border-issues-border text-muted-foreground font-mono text-xs font-medium hover:bg-muted/20 hover:text-foreground transition-all disabled:opacity-50"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  {t("unignore")}
-                </button>
-              )}
-            </div>
-
+          <div className="flex items-center justify-end">
             <AssigneeButton
               assignedTo={assignedTo}
               members={members}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SpanOpSummary } from "@/server/api/types/performance";
@@ -15,11 +16,13 @@ interface SpanBreakdownOverviewProps {
 }
 
 export function SpanBreakdownOverview({ data, isLoading }: SpanBreakdownOverviewProps) {
+  const t = useTranslations("performance");
+
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Span Breakdown</CardTitle>
+          <CardTitle className="text-base">{t("spanBreakdown")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -40,7 +43,7 @@ export function SpanBreakdownOverview({ data, isLoading }: SpanBreakdownOverview
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Span Breakdown</CardTitle>
+        <CardTitle className="text-base">{t("spanBreakdown")}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

@@ -267,7 +267,8 @@
       }
     },
     "slowestTransactions": {
-      "title": "Transactions les plus lentes"
+      "title": "Transactions les plus lentes",
+      "noData": "Aucune transaction lente trouvée."
     },
     "webVitals": {
       "title": "Web Vitals",
@@ -284,7 +285,10 @@
         "CLS": "Stabilité visuelle",
         "TTFB": "Réponse serveur",
         "INP": "Réactivité"
-      }
+      },
+      "serverSideTitle": "Projet server-side",
+      "serverSideMessage": "Ce projet utilise une plateforme server-side ({platform}). Les Web Vitals mesurent les performances navigateur (LCP, FID, CLS) et s'appliquent aux projets frontend.",
+      "serverSideHint": "Consultez plutôt :"
     },
     "apdex": {
       "title": "Score Apdex",
@@ -362,8 +366,21 @@
         "normal": "Normal",
         "repeated": "Répété",
         "n1Suspect": "Suspect N+1"
+      },
+      "tabs": {
+        "overview": "Vue d'ensemble",
+        "spans": "Spans"
+      },
+      "spanFilter": {
+        "all": "Tous"
       }
-    }
+    },
+    "spanBreakdown": "Répartition des spans",
+    "throughput": "Débit",
+    "responseTime": "Temps de réponse",
+    "avgLatency": "Latence moyenne",
+    "totalTransactions": "Total",
+    "noTransactionsHint": "Aucune transaction enregistrée. Installez un SDK pour commencer le suivi des performances."
   },
   "replays": {
     "title": "Rejeux de session",
@@ -1076,8 +1093,6 @@
     "row": {
       "fullMessage": "Message complet",
       "quickActions": "Actions rapides",
-      "resolve": "Résoudre",
-      "ignore": "Ignorer",
       "viewDetails": "Voir les détails",
       "sourceLocation": "Emplacement source",
       "events": "événements"
@@ -1094,10 +1109,6 @@
       "last7d": "7 derniers jours",
       "last30d": "30 derniers jours",
       "last90d": "90 derniers jours",
-      "allStatus": "Tous les statuts",
-      "open": "Ouvert",
-      "resolved": "Résolu",
-      "ignored": "Ignoré",
       "allSources": "Toutes les sources",
       "sourceHTTP": "HTTP",
       "sourceCLI": "CLI",
@@ -1114,17 +1125,12 @@
     },
     "page": {
       "selected": "{count} sélectionné(s)",
-      "bulkResolve": "Résoudre",
-      "bulkIgnore": "Ignorer",
-      "bulkReopen": "Rouvrir",
       "bulkMerge": "Fusionner",
       "exportButton": "Exporter",
       "exportCSV": "Exporter CSV",
       "exportJSON": "Exporter JSON",
       "noMatchingSignals": "Aucun signal correspondant. Essayez d ajuster vos filtres.",
       "noSignals": "Aucun signal détecté. Votre application fonctionne correctement.",
-      "updateSuccess": "{count} problème(s) mis à jour vers {status}",
-      "updateError": "Échec de la mise à jour des problèmes",
       "mergeSuccess": "Fusionné {count} problème(s) en 1",
       "mergeError": "Échec de la fusion des problèmes"
     }
@@ -1136,11 +1142,6 @@
       "firstSeen": "Première occurrence",
       "lastSeen": "Dernière occurrence",
       "trend": "Tendance",
-      "resolve": "Résoudre",
-      "ignore": "Ignorer",
-      "reopen": "Rouvrir",
-      "unignore": "Ne plus ignorer",
-      "resolvedBy": "Résolu par",
       "justNow": "à l instant",
       "minutesAgo": "il y a {n}min",
       "hoursAgo": "il y a {n}h",
@@ -1178,7 +1179,10 @@
       "release": "Version",
       "context": "Contexte",
       "firstSeenIn": "Première occurrence dans",
-      "noContext": "Aucune donnée de contexte disponible"
+      "noContext": "Aucune donnée de contexte disponible",
+      "browser": "Navigateur",
+      "os": "OS",
+      "runtime": "Runtime"
     },
     "occurrenceChart": {
       "occurrences": "Occurrences",
@@ -1247,13 +1251,8 @@
     },
     "header": {
       "issues": "problèmes",
-      "resolve": "Résoudre",
-      "ignore": "Ignorer",
-      "reopen": "Rouvrir",
-      "unignore": "Ne plus ignorer",
       "assign": "Assigner",
-      "unassign": "Désassigner",
-      "by": "par"
+      "unassign": "Désassigner"
     }
   },
   "crons": {

@@ -14,7 +14,7 @@ export function usePerformanceQueries(
   );
 
   const transactionsData = trpc.performance.getTransactions.useQuery(
-    { projectId: projectId!, page: 1, limit: 20 },
+    { projectId: projectId!, page: 1, limit: 20, dateRange },
     { enabled }
   );
 
@@ -33,5 +33,23 @@ export function usePerformanceQueries(
     { enabled: isServerSide && enabled }
   );
 
-  return { webVitals, transactionsData, spanAnalysis, apdexData, serverStats };
+  const throughputTimeline = trpc.performance.getThroughputTimeline.useQuery(
+    { projectId: projectId!, dateRange },
+    { enabled }
+  );
+
+  const durationTimeline = trpc.performance.getDurationTimeline.useQuery(
+    { projectId: projectId!, dateRange },
+    { enabled }
+  );
+
+  return {
+    webVitals,
+    transactionsData,
+    spanAnalysis,
+    apdexData,
+    serverStats,
+    throughputTimeline,
+    durationTimeline,
+  };
 }

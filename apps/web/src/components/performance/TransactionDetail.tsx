@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AlertTriangle, Copy } from "lucide-react";
 import type { TransactionWithSpans, Span } from "@/server/api/types";
 
@@ -330,6 +333,14 @@ export function TransactionDetail({ transaction }: TransactionDetailProps) {
   const duplicateSpans = detectDuplicateSpans(transaction.spans);
   const hasN1 = duplicateSpans.length > 0;
 
+  // Span operation filter state
+  const distinctOps = Array.from(new Set(transaction.spans.map((s) => s.op))).sort();
+  const [activeOp, setActiveOp] = useState<string | null>(null);
+
+  const filteredSpans = activeOp
+    ? transaction.spans.filter((s) => s.op === activeOp)
+    : transaction.spans;
+
   const parsedData = (() => {
     if (!transaction.data) return null;
     try {
@@ -348,165 +359,201 @@ export function TransactionDetail({ transaction }: TransactionDetailProps) {
     | undefined;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-lg">{transaction.name}</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {formatDate(transaction.startTimestamp)}
-              </p>
-            </div>
-            <Badge
-              variant="outline"
-              className={statusColors[transaction.status || "ok"] || statusColors.ok}
-            >
-              {transaction.status || "ok"}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div>
-              <p className="text-xs text-muted-foreground">{t("duration")}</p>
-              <p className="text-sm font-medium font-mono">
-                {formatDuration(transaction.duration)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t("operation")}</p>
-              <p className="text-sm font-medium">
-                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                  {transaction.op}
-                </span>
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t("environment")}</p>
-              <p className="text-sm font-medium">{transaction.env}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t("spans")}</p>
-              <p className="text-sm font-medium">{transaction.spans.length}</p>
-            </div>
-          </div>
-          {transaction.traceId && (
-            <div className="mt-3">
-              <p className="text-xs text-muted-foreground">{t("traceId")}</p>
-              <p className="text-xs font-mono text-muted-foreground">
-                {transaction.traceId}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <Tabs defaultValue="overview" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="overview">{t("tabs.overview")}</TabsTrigger>
+        <TabsTrigger value="spans">{t("tabs.spans")}</TabsTrigger>
+      </TabsList>
 
-      {/* Breakdown by operation */}
-      {transaction.spans.length > 0 && (
-        <SpanBreakdown spans={transaction.spans} totalDuration={transaction.duration} />
-      )}
-
-      {/* SDK Query Stats */}
-      {queryStats && (
+      {/* ── Tab: Overview ── */}
+      <TabsContent value="overview" className="space-y-6">
+        {/* Header */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t("queryStats.title")}</CardTitle>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-lg">{transaction.name}</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {formatDate(transaction.startTimestamp)}
+                </p>
+              </div>
+              <Badge
+                variant="outline"
+                className={statusColors[transaction.status || "ok"] || statusColors.ok}
+              >
+                {transaction.status || "ok"}
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div>
-                <p className="text-xs text-muted-foreground">{t("queryStats.total")}</p>
-                <p className="text-sm font-medium font-mono">{queryStats.total_queries}</p>
+                <p className="text-xs text-muted-foreground">{t("duration")}</p>
+                <p className="text-sm font-medium font-mono">
+                  {formatDuration(transaction.duration)}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{t("queryStats.unique")}</p>
-                <p className="text-sm font-medium font-mono">{queryStats.unique_queries}</p>
+                <p className="text-xs text-muted-foreground">{t("operation")}</p>
+                <p className="text-sm font-medium">
+                  <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                    {transaction.op}
+                  </span>
+                </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{t("queryStats.totalTime")}</p>
-                <p className="text-sm font-medium font-mono">{formatDuration(queryStats.total_query_time)}</p>
+                <p className="text-xs text-muted-foreground">{t("environment")}</p>
+                <p className="text-sm font-medium">{transaction.env}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t("spans")}</p>
+                <p className="text-sm font-medium">{transaction.spans.length}</p>
               </div>
             </div>
+            {transaction.traceId && (
+              <div className="mt-3">
+                <p className="text-xs text-muted-foreground">{t("traceId")}</p>
+                <p className="text-xs font-mono text-muted-foreground">
+                  {transaction.traceId}
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
 
-      {/* SDK-detected N+1 Queries */}
-      {sdkN1Queries && sdkN1Queries.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <span className="font-medium text-amber-800 dark:text-amber-200">{t("n1Detected.sdk")}</span>
-            </div>
-            <ul className="text-sm space-y-1">
-              {sdkN1Queries.map((q) => (
-                <li key={q.query_pattern}>
-                  <code className="text-xs">{q.query_pattern}</code> — {q.count} times (total: {formatDuration(q.total_duration)})
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+        {/* Breakdown by operation */}
+        {transaction.spans.length > 0 && (
+          <SpanBreakdown spans={transaction.spans} totalDuration={transaction.duration} />
+        )}
 
-      {/* N+1 Warning (span-based detection) */}
-      {hasN1 && (
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <span className="font-medium text-amber-800 dark:text-amber-200">{t("n1Detected.pattern")}</span>
-            </div>
-            <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
-              {t("n1Detected.description")}
-            </p>
-            <ul className="text-sm space-y-1">
-              {duplicateSpans.map(({ description, count, totalDuration }) => (
-                <li key={description}>
-                  <code className="text-xs">{description}</code> — {count} times (total: {totalDuration.toFixed(0)}ms)
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+        {/* SDK Query Stats */}
+        {queryStats && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t("queryStats.title")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("queryStats.total")}</p>
+                  <p className="text-sm font-medium font-mono">{queryStats.total_queries}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("queryStats.unique")}</p>
+                  <p className="text-sm font-medium font-mono">{queryStats.unique_queries}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("queryStats.totalTime")}</p>
+                  <p className="text-sm font-medium font-mono">{formatDuration(queryStats.total_query_time)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Waterfall */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">{t("waterfall.title")}</CardTitle>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-violet-500" />
-              <span>{t("waterfall.normal")}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-orange-400" />
-              <span>{t("waterfall.repeated")}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-amber-500" />
-              <span>{t("waterfall.n1Suspect")}</span>
-            </div>
+        {/* SDK-detected N+1 Queries */}
+        {sdkN1Queries && sdkN1Queries.length > 0 && (
+          <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <span className="font-medium text-amber-800 dark:text-amber-200">{t("n1Detected.sdk")}</span>
+              </div>
+              <ul className="text-sm space-y-1">
+                {sdkN1Queries.map((q) => (
+                  <li key={q.query_pattern}>
+                    <code className="text-xs">{q.query_pattern}</code> — {q.count} times (total: {formatDuration(q.total_duration)})
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* N+1 Warning (span-based detection) */}
+        {hasN1 && (
+          <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <span className="font-medium text-amber-800 dark:text-amber-200">{t("n1Detected.pattern")}</span>
+              </div>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+                {t("n1Detected.description")}
+              </p>
+              <ul className="text-sm space-y-1">
+                {duplicateSpans.map(({ description, count, totalDuration }) => (
+                  <li key={description}>
+                    <code className="text-xs">{description}</code> — {count} times (total: {totalDuration.toFixed(0)}ms)
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+      </TabsContent>
+
+      {/* ── Tab: Spans (Waterfall) ── */}
+      <TabsContent value="spans" className="space-y-4">
+        {/* Span operation filter */}
+        {distinctOps.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant={activeOp === null ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setActiveOp(null)}
+            >
+              {t("spanFilter.all")}
+            </Button>
+            {distinctOps.map((op) => (
+              <Button
+                key={op}
+                variant={activeOp === op ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs font-mono"
+                onClick={() => setActiveOp(activeOp === op ? null : op)}
+              >
+                {op}
+              </Button>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          {transaction.spans.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              {t("waterfall.noSpans")}
-            </p>
-          ) : (
-            <WaterfallGrid
-              spans={transaction.spans}
-              totalDuration={transaction.duration}
-              transactionStart={transactionStart}
-            />
-          )}
-        </CardContent>
-      </Card>
-    </div>
+        )}
+
+        {/* Waterfall */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">{t("waterfall.title")}</CardTitle>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-violet-500" />
+                <span>{t("waterfall.normal")}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-orange-400" />
+                <span>{t("waterfall.repeated")}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-amber-500" />
+                <span>{t("waterfall.n1Suspect")}</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {filteredSpans.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                {t("waterfall.noSpans")}
+              </p>
+            ) : (
+              <WaterfallGrid
+                spans={filteredSpans}
+                totalDuration={transaction.duration}
+                transactionStart={transactionStart}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   );
 }

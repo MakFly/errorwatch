@@ -8,6 +8,8 @@ import type {
   ApdexScore,
   ServerStats,
   EndpointImpact,
+  ThroughputBucket,
+  DurationBucket,
   PerformanceDateRange,
 } from './types';
 
@@ -23,13 +25,14 @@ export const getWebVitals = async (
 
 export const getTransactions = async (
   projectId: string,
-  options?: { op?: string; page?: number; limit?: number }
+  options?: { op?: string; page?: number; limit?: number; dateRange?: PerformanceDateRange }
 ): Promise<TransactionsResponse> => {
   const params = new URLSearchParams();
   params.set("projectId", projectId);
   if (options?.op) params.set("op", options.op);
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.dateRange) params.set("dateRange", options.dateRange);
   return fetchAPI<TransactionsResponse>(`/performance/transactions?${params.toString()}`);
 };
 
@@ -87,4 +90,28 @@ export const getTopEndpoints = async (
   params.set("projectId", projectId);
   if (dateRange) params.set("dateRange", dateRange);
   return fetchAPI<EndpointImpact[]>(`/performance/top-endpoints?${params.toString()}`);
+};
+
+export const getThroughputTimeline = async (
+  projectId: string,
+  dateRange?: PerformanceDateRange,
+  name?: string
+): Promise<ThroughputBucket[]> => {
+  const params = new URLSearchParams();
+  params.set("projectId", projectId);
+  if (dateRange) params.set("dateRange", dateRange);
+  if (name) params.set("name", name);
+  return fetchAPI<ThroughputBucket[]>(`/performance/throughput-timeline?${params.toString()}`);
+};
+
+export const getDurationTimeline = async (
+  projectId: string,
+  dateRange?: PerformanceDateRange,
+  name?: string
+): Promise<DurationBucket[]> => {
+  const params = new URLSearchParams();
+  params.set("projectId", projectId);
+  if (dateRange) params.set("dateRange", dateRange);
+  if (name) params.set("name", name);
+  return fetchAPI<DurationBucket[]>(`/performance/duration-timeline?${params.toString()}`);
 };

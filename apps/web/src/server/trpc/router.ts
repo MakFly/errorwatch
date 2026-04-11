@@ -71,12 +71,12 @@ const groupsRouter = router({
         dateRange: z.enum(["24h", "7d", "30d", "90d", "all"]).optional(),
         projectId: z.string().uuid().optional(),
         search: z.string().optional(),
-        status: z.enum(["open", "resolved", "ignored", "snoozed"]).optional(),
         level: z.enum(["fatal", "error", "warning", "info", "debug"]).optional(),
         levels: z.array(z.string()).optional(),
         sort: z.enum(["lastSeen", "firstSeen", "count"]).optional(),
         page: z.number().int().positive().optional(),
         limit: z.number().int().positive().max(100).optional(),
+        cursor: z.string().optional(),
       }).optional()
     )
     .query(async ({ input }) => {
@@ -105,15 +105,6 @@ const groupsRouter = router({
       return api.groups.getTimeline(input.fingerprint);
     }),
 
-  updateStatus: protectedProcedure
-    .input(z.object({
-      fingerprint: z.string(),
-      status: z.enum(["open", "resolved", "ignored"]),
-    }))
-    .mutation(async ({ input }) => {
-      return api.groups.updateStatus(input.fingerprint, input.status);
-    }),
-
   updateAssignment: protectedProcedure
     .input(z.object({
       fingerprint: z.string(),
@@ -127,15 +118,6 @@ const groupsRouter = router({
     .input(z.object({ fingerprint: z.string() }))
     .query(async ({ input }) => {
       return api.groups.getReleases(input.fingerprint);
-    }),
-
-  batchUpdateStatus: protectedProcedure
-    .input(z.object({
-      fingerprints: z.array(z.string()).min(1).max(100),
-      status: z.enum(["open", "resolved", "ignored"]),
-    }))
-    .mutation(async ({ input }) => {
-      return api.groups.batchUpdateStatus(input.fingerprints, input.status);
     }),
 
   merge: protectedProcedure
@@ -153,14 +135,6 @@ const groupsRouter = router({
       return api.groups.unmerge(input.fingerprint);
     }),
 
-  snooze: protectedProcedure
-    .input(z.object({
-      fingerprint: z.string(),
-      until: z.string(),
-    }))
-    .mutation(async ({ input }) => {
-      return api.groups.snooze(input.fingerprint, input.until);
-    }),
 });
 
 /**
@@ -645,12 +619,14 @@ const performanceRouter = router({
       op: z.string().optional(),
       page: z.number().int().positive().optional(),
       limit: z.number().int().positive().max(100).optional(),
+      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
     }))
     .query(async ({ input }) => {
       return api.performance.getTransactions(input.projectId, {
         op: input.op,
         page: input.page,
         limit: input.limit,
+        dateRange: input.dateRange,
       });
     }),
 
@@ -703,6 +679,26 @@ const performanceRouter = router({
     }))
     .query(async ({ input }) => {
       return api.performance.getTopEndpoints(input.projectId, input.dateRange);
+    }),
+
+  getThroughputTimeline: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
+      name: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      return api.performance.getThroughputTimeline(input.projectId, input.dateRange, input.name);
+    }),
+
+  getDurationTimeline: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
+      name: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      return api.performance.getDurationTimeline(input.projectId, input.dateRange, input.name);
     }),
 });
 
