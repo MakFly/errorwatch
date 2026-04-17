@@ -29,7 +29,7 @@ const envColors: Record<string, string> = {
   dev: "hsl(217 91% 60%)",
   development: "hsl(217 91% 60%)",
   test: "hsl(142 71% 45%)",
-  local: "hsl(262 83% 58%)",
+  local: "hsl(var(--brand))",
 };
 
 export function DistributionChart({ data, className }: DistributionChartProps) {

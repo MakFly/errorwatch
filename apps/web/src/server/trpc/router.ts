@@ -604,15 +604,6 @@ const userRouter = router({
  * Performance router - protected
  */
 const performanceRouter = router({
-  getWebVitals: protectedProcedure
-    .input(z.object({
-      projectId: z.string().uuid(),
-      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
-    }))
-    .query(async ({ input }) => {
-      return api.performance.getWebVitals(input.projectId, input.dateRange);
-    }),
-
   getTransactions: protectedProcedure
     .input(z.object({
       projectId: z.string().uuid(),
@@ -699,6 +690,52 @@ const performanceRouter = router({
     }))
     .query(async ({ input }) => {
       return api.performance.getDurationTimeline(input.projectId, input.dateRange, input.name);
+    }),
+
+  getExternalCalls: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
+    }))
+    .query(async ({ input }) => {
+      return api.performance.getExternalCalls(input.projectId, input.dateRange);
+    }),
+
+  getCache: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
+    }))
+    .query(async ({ input }) => {
+      return api.performance.getCache(input.projectId, input.dateRange);
+    }),
+
+  getQueues: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
+    }))
+    .query(async ({ input }) => {
+      return api.performance.getQueues(input.projectId, input.dateRange);
+    }),
+
+  getEndpointDetail: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      name: z.string().min(1),
+      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
+    }))
+    .query(async ({ input }) => {
+      return api.performance.getEndpointDetail(input.projectId, input.name, input.dateRange);
+    }),
+
+  getWebVitals: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
+    }))
+    .query(async ({ input }) => {
+      return api.performance.getWebVitals(input.projectId, input.dateRange);
     }),
 });
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,7 +17,7 @@ interface EndpointImpactProps {
   baseUrl: string;
 }
 
-export function EndpointImpact({ data, isLoading }: EndpointImpactProps) {
+export function EndpointImpact({ data, isLoading, baseUrl }: EndpointImpactProps) {
   const t = useTranslations("performance.queries.endpointImpact");
 
   if (isLoading) {
@@ -64,9 +65,19 @@ export function EndpointImpact({ data, isLoading }: EndpointImpactProps) {
                       <span className="flex h-5 w-5 items-center justify-center rounded bg-muted text-xs font-mono text-muted-foreground">
                         {idx + 1}
                       </span>
-                      <span className="font-mono text-xs truncate max-w-[300px]" title={endpoint.name}>
-                        {endpoint.name}
-                      </span>
+                      {baseUrl ? (
+                        <Link
+                          href={`${baseUrl}/performance/requests/${encodeURIComponent(endpoint.name)}`}
+                          className="font-mono text-xs truncate max-w-[300px] hover:text-violet-400 hover:underline"
+                          title={endpoint.name}
+                        >
+                          {endpoint.name}
+                        </Link>
+                      ) : (
+                        <span className="font-mono text-xs truncate max-w-[300px]" title={endpoint.name}>
+                          {endpoint.name}
+                        </span>
+                      )}
                       <span className="rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-mono text-violet-400">
                         {endpoint.op}
                       </span>

@@ -25,6 +25,9 @@ const logsIngestSchema = z.object({
   url: z.string().max(2000).optional().nullable(),
   request_id: z.string().max(200).optional().nullable(),
   user_id: z.string().max(200).optional().nullable(),
+  // Distributed tracing correlation (W3C traceparent)
+  trace_id: z.string().max(64).optional().nullable(),
+  span_id: z.string().max(32).optional().nullable(),
 });
 
 const tailQuerySchema = z.object({
@@ -103,6 +106,8 @@ export const ingest = async (c: Context) => {
       url: input.url ? scrubPII(input.url) : null,
       requestId: input.request_id ? scrubPII(input.request_id) : null,
       userId: input.user_id ?? null,
+      traceId: input.trace_id ?? null,
+      spanId: input.span_id ?? null,
     });
 
     const project = await db

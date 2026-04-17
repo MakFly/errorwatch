@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Server, Globe, Package, Cpu } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface Release {
@@ -23,50 +22,31 @@ interface ContextCardsProps {
   className?: string;
 }
 
-const envConfig: Record<string, { color: string; dot: string }> = {
-  prod: { color: "text-signal-error", dot: "bg-signal-error" },
-  production: { color: "text-signal-error", dot: "bg-signal-error" },
-  staging: { color: "text-signal-warning", dot: "bg-signal-warning" },
-  dev: { color: "text-signal-info", dot: "bg-signal-info" },
-  development: { color: "text-signal-info", dot: "bg-signal-info" },
-  test: { color: "text-muted-foreground", dot: "bg-muted-foreground" },
-  local: { color: "text-blue-400", dot: "bg-blue-400" },
+const envColors: Record<string, string> = {
+  prod: "bg-signal-error/15 text-signal-error border-signal-error/30",
+  production: "bg-signal-error/15 text-signal-error border-signal-error/30",
+  staging: "bg-signal-warning/15 text-signal-warning border-signal-warning/30",
+  dev: "bg-signal-info/15 text-signal-info border-signal-info/30",
+  development: "bg-signal-info/15 text-signal-info border-signal-info/30",
+  test: "bg-muted/30 text-muted-foreground border-dashboard-border",
+  local: "bg-blue-500/15 text-blue-400 border-blue-500/30",
 };
 
-function Card({
-  title,
-  icon: Icon,
-  children,
-  className,
-}: {
-  title: string;
-  icon: typeof Server;
-  children: React.ReactNode;
-  className?: string;
-}) {
+function Row({ label, value, valueClass }: { label: string; value: React.ReactNode; valueClass?: string }) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-issues-border bg-issues-surface p-4",
-        className
-      )}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        <h3 className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {title}
-        </h3>
-      </div>
-      {children}
+    <div className="flex items-baseline gap-4 border-b border-dashboard-border/40 px-6 py-2.5 font-mono text-sm last:border-0 md:px-8">
+      <span className="w-32 shrink-0 text-xs uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span className={cn("min-w-0 flex-1 truncate text-foreground", valueClass)}>{value}</span>
     </div>
   );
 }
 
-function ContextRow({ label, value }: { label: string; value: string }) {
+function SectionHead({ title }: { title: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 text-sm">
-      <span className="text-muted-foreground shrink-0">{label}</span>
-      <span className="font-mono text-xs text-foreground truncate">{value}</span>
+    <div className="border-b border-dashboard-border/60 bg-muted/10 px-6 py-2 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground md:px-8">
+      {title}
     </div>
   );
 }
@@ -79,104 +59,90 @@ export function ContextCards({
   className,
 }: ContextCardsProps) {
   const t = useTranslations("issueDetail.contextCards");
-  const envCfg = env
-    ? envConfig[env] || { color: "text-muted-foreground", dot: "bg-muted-foreground" }
-    : null;
 
   const hasBrowserOrOs = contexts?.browser?.name || contexts?.os?.name;
   const hasRuntime = contexts?.runtime?.name;
   const hasRelease = releases && releases.length > 0;
   const hasAnything = env || hasBrowserOrOs || hasRuntime || hasRelease;
 
+  if (!hasAnything) {
+    return (
+      <p className={cn("px-6 py-8 text-center text-sm italic text-muted-foreground md:px-8", className)}>
+        {t("noContext")}
+      </p>
+    );
+  }
+
+  const envColorClass = env ? envColors[env] ?? "bg-muted/30 text-muted-foreground border-dashboard-border" : "";
+
   return (
-    <div className={cn("grid grid-cols-1 md:grid-cols-3 gap-4", className)}>
-      {/* Environment */}
-      {env && envCfg && (
-        <Card title={t("environment")} icon={Server}>
-          <div className="flex items-center gap-2">
-            <span className={cn("h-2 w-2 rounded-full animate-pulse", envCfg.dot)} />
-            <span className={cn("font-mono text-sm font-medium", envCfg.color)}>
+    <div className={cn("flex flex-col", className)}>
+      {env && (
+        <>
+          <SectionHead title={t("environment")} />
+          <div className="flex items-center gap-2 border-b border-dashboard-border/40 px-6 py-3 md:px-8">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-sm font-semibold",
+                envColorClass
+              )}
+            >
+              <span className={cn("h-1.5 w-1.5 rounded-full bg-current")} />
               {env}
             </span>
           </div>
-        </Card>
+        </>
       )}
 
-      {/* Browser / OS */}
       {hasBrowserOrOs && (
-        <Card title={t("device")} icon={Globe}>
-          <div className="space-y-2">
-            {contexts?.browser?.name && (
-              <ContextRow
-                label={t("browser")}
-                value={
-                  contexts.browser.version
-                    ? `${contexts.browser.name} ${contexts.browser.version}`
-                    : contexts.browser.name
-                }
-              />
-            )}
-            {contexts?.os?.name && (
-              <ContextRow
-                label={t("os")}
-                value={
-                  contexts.os.version
-                    ? `${contexts.os.name} ${contexts.os.version}`
-                    : contexts.os.name
-                }
-              />
-            )}
-          </div>
-        </Card>
+        <>
+          <SectionHead title={t("device")} />
+          {contexts?.browser?.name && (
+            <Row
+              label={t("browser")}
+              value={contexts.browser.version ? `${contexts.browser.name} ${contexts.browser.version}` : contexts.browser.name}
+            />
+          )}
+          {contexts?.os?.name && (
+            <Row
+              label={t("os")}
+              value={contexts.os.version ? `${contexts.os.name} ${contexts.os.version}` : contexts.os.name}
+            />
+          )}
+        </>
       )}
 
-      {/* Runtime */}
       {hasRuntime && (
-        <Card title={t("runtime")} icon={Cpu}>
-          <ContextRow
+        <>
+          <SectionHead title={t("runtime")} />
+          <Row
             label={contexts!.runtime!.name!}
-            value={contexts!.runtime!.version ?? ""}
+            value={contexts!.runtime!.version ?? "—"}
           />
-        </Card>
+        </>
       )}
 
-      {/* Release */}
       {hasRelease && (
-        <Card title={t("release")} icon={Package}>
-          <div className="space-y-2">
-            {firstSeenIn && firstSeenIn !== "unknown" && (
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] text-muted-foreground">{t("firstSeenIn")}</span>
-                <span className="font-mono text-xs font-medium text-pulse-primary">
-                  {firstSeenIn}
-                </span>
+        <>
+          <SectionHead title={t("release")} />
+          {firstSeenIn && firstSeenIn !== "unknown" && (
+            <Row label={t("firstSeenIn")} value={firstSeenIn} valueClass="text-pulse-primary font-semibold" />
+          )}
+          {releases!.slice(0, 5).map((release) => (
+            <div
+              key={release.version}
+              className="flex items-center gap-4 border-b border-dashboard-border/40 px-6 py-2.5 font-mono text-sm last:border-0 md:px-8"
+            >
+              <span className="w-32 shrink-0 truncate text-foreground">{release.version}</span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/20">
+                <div className="h-full rounded-full bg-pulse-primary" style={{ width: `${release.percentage}%` }} />
               </div>
-            )}
-            {releases.slice(0, 3).map((release) => (
-              <div key={release.version} className="flex items-center justify-between">
-                <span className="font-mono text-xs text-foreground">{release.version}</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-16 h-1.5 bg-muted/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-pulse-primary rounded-full"
-                      style={{ width: `${release.percentage}%` }}
-                    />
-                  </div>
-                  <span className="font-mono text-[10px] text-muted-foreground w-8 text-right">
-                    {release.percentage}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Fallback if nothing */}
-      {!hasAnything && (
-        <Card title={t("context")} icon={Server} className="col-span-full">
-          <p className="text-sm text-muted-foreground italic">{t("noContext")}</p>
-        </Card>
+              <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                {release.percentage}%
+              </span>
+            </div>
+          ))}
+        </>
       )}
     </div>
   );

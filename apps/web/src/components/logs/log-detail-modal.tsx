@@ -70,7 +70,7 @@ function JsonSection({ label, data }: { label: string; data: Record<string, unkn
 }
 
 function LogDetailContent({ log }: { log: ApplicationLog }) {
-  const hasMetadata = log.env || log.source || log.release || log.url || log.requestId || log.userId;
+  const hasMetadata = log.env || log.source || log.release || log.url || log.requestId || log.userId || log.traceId;
 
   return (
     <div className="space-y-4">
@@ -151,6 +151,19 @@ function LogDetailContent({ log }: { log: ApplicationLog }) {
               <>
                 <dt className="text-muted-foreground">userId</dt>
                 <dd className="font-mono">{log.userId}</dd>
+              </>
+            )}
+            {log.traceId && (
+              <>
+                <dt className="text-muted-foreground">traceId</dt>
+                <dd className="font-mono text-xs break-all">
+                  {log.traceId}
+                  {log.spanId ? (
+                    <span className="ml-2 text-muted-foreground/70">
+                      · span {log.spanId}
+                    </span>
+                  ) : null}
+                </dd>
               </>
             )}
           </dl>

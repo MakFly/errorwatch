@@ -22,7 +22,10 @@
     "theme": "Theme",
     "themeLight": "Light",
     "themeDark": "Dark",
-    "themeSystem": "System"
+    "themeSystem": "System",
+    "justNow": "just now",
+    "now": "now",
+    "copyToClipboard": "Copy to clipboard"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -32,9 +35,14 @@
     "stats": "Stats",
     "performance": "Performance",
     "overview": "Overview",
+    "requests": "Requests",
     "transactions": "Transactions",
-    "webVitals": "Web Vitals",
+    "database": "Database",
     "databaseQueries": "Database Queries",
+    "cache": "Cache",
+    "http": "HTTP",
+    "queues": "Queues",
+    "webVitals": "Web Vitals",
     "settings": "Settings",
     "help": "Help",
     "admin": "Admin",
@@ -87,13 +95,18 @@
     "environmentDevelopment": "Development",
     "createSuccess": "Project created!",
     "createSuccessDescription": "\"{name}\" is ready to receive errors.",
-    "createError": "Failed to create project"
+    "createError": "Failed to create project",
+    "createSubmit": "Create Project",
+    "validationRequired": "Project name is required",
+    "validationTooLong": "Project name is too long",
+    "validationSameAsOrg": "Project name cannot be the same as organization name"
   },
   "platform": {
     "fullstack": "Fullstack",
     "frontend": "Frontend",
     "backend": "Backend",
-    "php": "PHP"
+    "php": "PHP",
+    "infrastructure": "Infrastructure"
   },
   "upgrade": {
     "title": "Upgrade to Pro",
@@ -112,7 +125,11 @@
     "upgradeNow": "Upgrade Now",
     "starting": "Starting...",
     "checkoutError": "Failed to start checkout",
-    "checkoutUrlUnavailable": "Checkout URL unavailable"
+    "checkoutUrlUnavailable": "Checkout URL unavailable",
+    "resourceProject": "project",
+    "resourceProjects": "projects",
+    "resourceOrganization": "organization",
+    "resourceOrganizations": "organizations"
   },
   "noProject": {
     "title": "No project configured",
@@ -228,17 +245,37 @@
     "errorRate": "Error Rate",
     "aboveThreshold": "Above threshold",
     "subPages": {
+      "requests": {
+        "title": "Requests",
+        "description": "Endpoints ranked by impact (volume × duration) with error rate."
+      },
       "transactions": {
         "title": "Transactions",
-        "description": "View all transactions, grouped or individual, with filtering and pagination."
+        "description": "All transactions, grouped or individual, with filtering and pagination."
       },
-      "webVitals": {
-        "title": "Web Vitals",
-        "description": "Core Web Vitals metrics: LCP, FID, CLS, TTFB, INP."
+      "database": {
+        "title": "Database",
+        "description": "Duplicate queries (N+1), slowest queries, and frequent patterns."
       },
       "databaseQueries": {
         "title": "Database Queries",
         "description": "Duplicate queries (N+1), slowest queries, and endpoint impact analysis."
+      },
+      "cache": {
+        "title": "Cache",
+        "description": "Cache operations grouped by op with hit rate and latency."
+      },
+      "http": {
+        "title": "HTTP Calls",
+        "description": "Outbound HTTP calls grouped by host and method."
+      },
+      "queues": {
+        "title": "Queues",
+        "description": "Background jobs and message bus consumers (Messenger, Laravel Queue)."
+      },
+      "webVitals": {
+        "title": "Web Vitals",
+        "description": "Core Web Vitals (LCP, CLS, INP) at p75 with rating thresholds."
       }
     },
     "transactions": {
@@ -269,26 +306,6 @@
     "slowestTransactions": {
       "title": "Slowest Transactions",
       "noData": "No slow transactions found."
-    },
-    "webVitals": {
-      "title": "Web Vitals",
-      "noData": "No Web Vitals data available",
-      "noDataHint": "Web Vitals track browser performance metrics (LCP, FID, CLS). For server-side projects, check the Transactions section below for response times and query performance.",
-      "status": {
-        "good": "Good",
-        "needsImprovement": "Needs Improvement",
-        "poor": "Poor"
-      },
-      "descriptions": {
-        "LCP": "Loading performance",
-        "FID": "Interactivity",
-        "CLS": "Visual stability",
-        "TTFB": "Server response",
-        "INP": "Responsiveness"
-      },
-      "serverSideTitle": "Server-Side Project",
-      "serverSideMessage": "This project uses a server-side platform ({platform}). Web Vitals measure browser performance (LCP, FID, CLS) and apply to frontend projects.",
-      "serverSideHint": "Check these instead:"
     },
     "apdex": {
       "title": "Apdex Score",
@@ -394,6 +411,33 @@
     "backToReplays": "Back to replays",
     "noEventsRecorded": "No events recorded",
     "noEventsDesc": "This session has no recorded events. The user may have left the page before any interactions were captured.",
+    "device": {
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "tablet": "Tablet",
+      "unknown": "Unknown"
+    },
+    "empty": {
+      "noSessions": "No sessions recorded"
+    },
+    "sdkNotInstalled": {
+      "title": "Not available",
+      "message": "SDK not installed"
+    },
+    "columns": {
+      "session": "Session",
+      "duration": "Duration",
+      "page": "Page",
+      "device": "Device",
+      "environment": "Environment",
+      "errors": "Errors"
+    },
+    "actions": {
+      "watchReplay": "Watch Replay",
+      "viewIssue": "View Issue",
+      "openPage": "Open Page",
+      "openMenu": "Open menu"
+    },
     "filters": {
       "searchByUrl": "Search by URL...",
       "allBrowsers": "All browsers",
@@ -830,7 +874,30 @@
       "avg": "Avg:",
       "perHour": "/hr",
       "environments": "Environments",
-      "noData": "No data"
+      "noData": "No data",
+      "trafficShape": {
+        "title": "Traffic shape",
+        "subtitle": "Request volume over the selected range",
+        "total": "Total",
+        "empty": "No traffic data for this period",
+        "legend": {
+          "requests": "Requests",
+          "peak": "Peak"
+        }
+      },
+      "exceptionsInbox": {
+        "title": "Exceptions inbox",
+        "viewAll": "View all",
+        "empty": "No exceptions for this project"
+      }
+    },
+    "kpi": {
+      "requests": "Requests",
+      "latencyP95": "Latency p95",
+      "newIssues24h": "New issues 24h",
+      "exceptions": "Exceptions",
+      "uptime": "Uptime",
+      "events": "Events"
     }
   },
   "stats": {
@@ -894,6 +961,15 @@
       "subtitle": "Incoming signals requiring attention",
       "signals": "signals"
     },
+    "severity": {
+      "fatal": "Fatal",
+      "error": "Error",
+      "warning": "Warning",
+      "warningShort": "Warn",
+      "info": "Info",
+      "debug": "Debug",
+      "noSignalsDetected": "No signals detected"
+    },
     "table": {
       "columnSignal": "Signal",
       "columnMessage": "Message",
@@ -913,7 +989,9 @@
       "quickActions": "Quick Actions",
       "viewDetails": "View Details",
       "sourceLocation": "Source Location",
-      "events": "events"
+      "events": "events",
+      "resolve": "Resolve",
+      "ignore": "Ignore"
     },
     "filters": {
       "searchPlaceholder": "Search signals...",
@@ -950,7 +1028,10 @@
       "noMatchingSignals": "No matching signals found. Try adjusting your filters.",
       "noSignals": "No signals detected. Your application is running smoothly.",
       "mergeSuccess": "Merged {count} issue(s) into 1",
-      "mergeError": "Failed to merge issues"
+      "mergeError": "Failed to merge issues",
+      "pageOf": "Page {page} of {totalPages} ({total} total)",
+      "previous": "Previous",
+      "next": "Next"
     }
   },
   "issueDetail": {
@@ -982,7 +1063,16 @@
       "noFrames": "No stack frames found",
       "source": "source",
       "vendor": "vendor",
+      "frameworkFrames": "{count} framework frame",
+      "frameworkFramesPlural": "{count} framework frames",
       "in": "in"
+    },
+    "tabs": {
+      "stack": "Stack Trace",
+      "breadcrumbs": "Breadcrumbs",
+      "request": "Request",
+      "context": "Context",
+      "trace": "Distributed trace"
     },
     "eventTimeline": {
       "title": "Event Timeline",
@@ -1370,25 +1460,87 @@
     "viewAll": "View all",
     "bytesPerSec": "bytes/s",
     "percentage": "%",
-    "guide": {
-      "title": "Get started with Infrastructure Monitoring",
-      "subtitle": "Install the ErrorWatch metrics agent on your servers to collect CPU, memory, network and disk metrics in real-time.",
-      "requirements": "Requirements",
-      "requirementGo": "Go 1.21+ (for building from source)",
-      "requirementOs": "Linux or macOS",
-      "step1Title": "Install the agent",
-      "step1Desc": "Clone the repository and build the binary:",
-      "step2Title": "Initialize configuration",
-      "step2Desc": "Generate the default configuration file:",
-      "step3Title": "Configure your API key",
-      "step3Desc": "Edit the configuration file with your project's API key:",
-      "step3Note": "Replace YOUR_API_KEY with the key from Settings > API Keys.",
-      "step4Title": "Start the agent",
-      "step4Desc": "Run the agent to start collecting metrics:",
-      "step4Note": "Metrics will appear here within seconds.",
-      "docsLink": "View full documentation",
-      "alternativeTitle": "Alternative: Environment variables",
-      "alternativeDesc": "You can also configure the agent using environment variables:"
+    "sdkNotInstalled": {
+      "title": "Not available",
+      "message": "SDK not installed"
     }
+  },
+  "breadcrumbs": {
+    "title": "Breadcrumbs",
+    "actionsCount": "({count} actions)",
+    "showEarlier": "Show {count} earlier breadcrumbs",
+    "secondsBefore": "{n}s before",
+    "minutesBefore": "{m}m {s}s before",
+    "category": {
+      "ui": "UI",
+      "navigation": "Navigation",
+      "console": "Console",
+      "http": "HTTP",
+      "user": "User"
+    }
+  },
+  "sdkInstructions": {
+    "setupTitle": "Setup {name}",
+    "subtitle": "Install the SDK and configure your project",
+    "installStep": "Install the package",
+    "configureStep": "Configure your app",
+    "apiKeyTitle": "Your API Key",
+    "apiKeyNote": "Keep this key secure. It's used to authenticate your error reports.",
+    "terminal": "Terminal",
+    "configuration": "Configuration",
+    "copy": "Copy",
+    "copied": "Copied!"
+  },
+  "pageHeader": {
+    "range": {
+      "last24h": "Last 24 hours",
+      "last7d": "Last 7 days",
+      "last30d": "Last 30 days",
+      "last90d": "Last 90 days"
+    },
+    "dashboard": { "title": "Overview", "description": "Monitor your application health at a glance" },
+    "issues": { "title": "Issues", "description": "Incoming signals requiring attention" },
+    "logs": { "title": "Logs", "description": "Live stream of structured application logs" },
+    "stats": { "title": "Statistics", "description": "Historical error trends and insights" },
+    "replays": { "title": "Replays", "description": "Watch user sessions that encountered errors" },
+    "infrastructure": { "title": "Infrastructure", "description": "Host metrics collected by the ErrorWatch agent" },
+    "crons": { "title": "Crons", "description": "Scheduled job executions and heartbeats" },
+    "settings": { "title": "Settings", "description": "Project configuration, members and API keys" },
+    "admin": { "title": "Admin", "description": "Platform administration and maintenance" },
+    "help": { "title": "Help", "description": "Guides, integrations and troubleshooting" },
+    "performance": { "title": "Performance", "description": "Throughput, latency and Apdex for this project" },
+    "performanceRequests": { "title": "Requests", "description": "Endpoints ranked by volume, latency and errors" },
+    "performanceRequestDetail": { "title": "Endpoint detail", "description": "Latency, throughput and top queries for this endpoint" },
+    "performanceTransactions": { "title": "Transactions", "description": "Endpoint-level performance breakdown" },
+    "performanceDatabase": { "title": "Database", "description": "Slowest queries, N+1 detection and frequent patterns" },
+    "performanceCache": { "title": "Cache", "description": "Cache operations grouped by op with hit rate" },
+    "performanceHttp": { "title": "HTTP Calls", "description": "Outbound HTTP calls grouped by host and method" },
+    "performanceQueues": { "title": "Queues", "description": "Background jobs and message bus consumers" },
+    "performanceWebVitals": { "title": "Web Vitals", "description": "Core Web Vitals at p75 with rating" }
+  },
+  "metadata": {
+    "dashboard": "Dashboard",
+    "admin": "Admin",
+    "crons": "Crons",
+    "cronMonitor": "Cron Monitor",
+    "help": "Help",
+    "infrastructure": "Infrastructure",
+    "issues": "Issues",
+    "issueDetail": "Issue Detail",
+    "logs": "Logs",
+    "performance": "Performance",
+    "performanceRequests": "Performance · Requests",
+    "performanceRequestDetail": "Performance · Endpoint",
+    "performanceCache": "Performance · Cache",
+    "performanceHttp": "Performance · HTTP Calls",
+    "performanceDatabase": "Performance · Database",
+    "performanceQueues": "Performance · Queues",
+    "performanceWebVitals": "Performance · Web Vitals",
+    "performanceTransactions": "Performance · Transactions",
+    "performanceTransactionDetail": "Performance · Transaction",
+    "replays": "Replays",
+    "replayDetail": "Replay Session",
+    "settings": "Settings",
+    "stats": "Stats"
   }
 }

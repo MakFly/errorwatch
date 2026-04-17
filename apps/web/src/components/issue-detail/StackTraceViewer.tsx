@@ -2,14 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import {
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Check,
-  Code2,
-  Package,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Check, Code2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface StackFrame {
@@ -31,190 +24,214 @@ function parseStackTrace(stack: string): StackFrame[] {
   const lines = stack.split("\n");
   const frames: StackFrame[] = [];
 
-  // Multiple patterns for different stack trace formats
   const patterns: Array<{ regex: RegExp; groups: { fn?: number; file: number; line: number; col?: number } }> = [
-    // Node.js/V8: "at functionName (file:line:col)" or "at file:line:col"
     { regex: /at\s+(?:(.+?)\s+)?\(?(.+?):(\d+):?(\d+)?\)?/, groups: { fn: 1, file: 2, line: 3, col: 4 } },
-    // Firefox: "functionName@file:line:col"
     { regex: /^(.+?)@(.+?):(\d+):?(\d+)?$/, groups: { fn: 1, file: 2, line: 3, col: 4 } },
-    // Safari: "functionName — file:line"
     { regex: /^(.+?)\s+—\s+(.+?):(\d+)$/, groups: { fn: 1, file: 2, line: 3 } },
-    // Chrome async: "async functionName (file:line:col)"
     { regex: /async\s+(.+?)\s+\((.+?):(\d+):?(\d+)?\)/, groups: { fn: 1, file: 2, line: 3, col: 4 } },
-    // PHP: "#0 file(line): function()"
     { regex: /#\d+\s+(.+?)\((\d+)\):\s+(.+)/, groups: { file: 1, line: 2, fn: 3 } },
-    // Python: "File "file", line N, in function"
     { regex: /File\s+"(.+?)",\s+line\s+(\d+),\s+in\s+(.+)/, groups: { file: 1, line: 2, fn: 3 } },
-    // Java/Kotlin: "at package.Class.method(File.java:line)"
     { regex: /at\s+(.+?)\((.+?):(\d+)\)/, groups: { fn: 1, file: 2, line: 3 } },
-    // Simple fallback: "file:line:col" or "file:line"
     { regex: /^\s*(.+?):(\d+):?(\d+)?$/, groups: { file: 1, line: 2, col: 3 } },
   ];
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-
-    // Skip error message lines (usually first line)
     if (trimmed.match(/^(\w+Error|\w+Exception):/)) continue;
 
     for (const { regex, groups } of patterns) {
       const match = trimmed.match(regex);
-      if (match) {
-        const file = match[groups.file] || "";
-        const lineNum = match[groups.line];
-        const fn = groups.fn ? match[groups.fn] : undefined;
-        const col = groups.col ? match[groups.col] : undefined;
+      if (!match) continue;
 
-        // Skip if we don't have at least file and line
-        if (!file || !lineNum) continue;
+      const file = match[groups.file] || "";
+      const lineNum = match[groups.line];
+      const fn = groups.fn ? match[groups.fn] : undefined;
+      const col = groups.col ? match[groups.col] : undefined;
 
-        const isVendor = file.includes("node_modules") ||
-                         file.includes("vendor") ||
-                         file.includes(".min.") ||
-                         file.includes("/dist/");
+      if (!file || !lineNum) continue;
 
-        frames.push({
-          file: file
-            .replace(/^webpack:\/\/\//, "")
-            .replace(/^file:\/\//, "")
-            .replace(/\?.+$/, ""),
-          line: parseInt(lineNum, 10),
-          column: col ? parseInt(col, 10) : undefined,
-          function: fn || "(anonymous)",
-          isVendor,
-        });
-        break; // Stop at first matching pattern
-      }
+      const isVendor =
+        file.includes("node_modules") ||
+        file.includes("/vendor/") ||
+        file.includes(".min.") ||
+        file.includes("/dist/") ||
+        file.includes("symfony/") ||
+        file.includes("doctrine/");
+
+      frames.push({
+        file: file
+          .replace(/^webpack:\/\/\//, "")
+          .replace(/^file:\/\//, "")
+          .replace(/\?.+$/, ""),
+        line: parseInt(lineNum, 10),
+        column: col ? parseInt(col, 10) : undefined,
+        function: fn || "(anonymous)",
+        isVendor,
+      });
+      break;
     }
   }
 
   return frames;
 }
 
-function CopyButton({ text, className }: { text: string; className?: string }) {
-  const [copied, setCopied] = useState(false);
+type Segment =
+  | { kind: "frame"; frame: StackFrame; absIndex: number; highlighted: boolean }
+  | { kind: "group"; frames: StackFrame[]; startIndex: number };
 
-  return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }}
-      className={cn("p-1.5 rounded hover:bg-muted/20 transition-colors", className)}
-      title="Copy"
-    >
-      {copied ? (
-        <Check className="h-3.5 w-3.5 text-signal-info" />
-      ) : (
-        <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-      )}
-    </button>
-  );
+function groupFrames(frames: StackFrame[], highlightFile?: string, highlightLine?: number): Segment[] {
+  const segments: Segment[] = [];
+  let buffer: StackFrame[] = [];
+  let bufferStart = 0;
+
+  const flush = () => {
+    if (buffer.length === 0) return;
+    if (buffer.length === 1) {
+      segments.push({ kind: "frame", frame: buffer[0], absIndex: bufferStart, highlighted: false });
+    } else {
+      segments.push({ kind: "group", frames: [...buffer], startIndex: bufferStart });
+    }
+    buffer = [];
+  };
+
+  frames.forEach((frame, idx) => {
+    const isHighlighted =
+      !!highlightFile &&
+      !!highlightLine &&
+      frame.file.includes(highlightFile) &&
+      frame.line === highlightLine;
+
+    if (frame.isVendor && !isHighlighted) {
+      if (buffer.length === 0) bufferStart = idx;
+      buffer.push(frame);
+    } else {
+      flush();
+      segments.push({ kind: "frame", frame, absIndex: idx, highlighted: isHighlighted });
+    }
+  });
+
+  flush();
+  return segments;
 }
 
-function FrameItem({
+function FrameRow({
   frame,
   index,
-  isHighlighted,
-  defaultExpanded,
+  highlighted,
 }: {
   frame: StackFrame;
   index: number;
-  isHighlighted: boolean;
-  defaultExpanded: boolean;
+  highlighted: boolean;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(highlighted);
+  const [copied, setCopied] = useState(false);
   const t = useTranslations("issueDetail.stackTrace");
 
+  const filename = frame.file.split("/").pop();
+
   return (
-    <div className={cn(
-      "border-b border-issues-border last:border-0",
-      isHighlighted && "bg-signal-warning/5"
-    )}>
-      {/* Frame header */}
+    <div
+      className={cn(
+        "border-b border-dashboard-border/60 font-mono last:border-0",
+        highlighted && "bg-signal-fatal/5"
+      )}
+    >
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => setExpanded((v) => !v)}
         className={cn(
-          "w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-muted/5 transition-colors",
-          isHighlighted && "hover:bg-signal-warning/10"
+          "flex w-full items-center gap-3 px-6 py-2.5 text-left transition-colors md:px-8",
+          highlighted ? "hover:bg-signal-fatal/10" : "hover:bg-muted/20"
         )}
       >
-        {/* Expand icon */}
-        <div className="text-muted-foreground">
-          {expanded ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
+        <span className="text-muted-foreground/60">
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </span>
+        <span
+          className={cn(
+            "w-6 shrink-0 text-right text-xs",
+            highlighted ? "text-signal-fatal font-bold" : "text-muted-foreground/60"
           )}
-        </div>
-
-        {/* Frame number */}
-        <span className={cn(
-          "font-mono text-xs font-bold w-5 shrink-0",
-          isHighlighted ? "text-signal-warning" : "text-muted-foreground"
-        )}>
+        >
           {index + 1}
         </span>
-
-        {/* File and location */}
-        <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-visible">
-          <code className="font-mono text-sm text-foreground whitespace-nowrap">
-            <span className={isHighlighted ? "text-signal-warning" : "text-signal-info"}>
-              {frame.file.split("/").pop()}
-            </span>
-            <span className="text-muted">:</span>
-            <span className={isHighlighted ? "text-signal-warning" : "text-signal-warning/70"}>
-              {frame.line}
-            </span>
-            {frame.column && (
-              <>
-                <span className="text-muted">:</span>
-                <span className="text-muted-foreground">{frame.column}</span>
-              </>
-            )}
-          </code>
-
-          {isHighlighted && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider bg-signal-warning/20 text-signal-warning border border-signal-warning/30">
-              {t("source")}
-            </span>
+        <code className="flex min-w-0 flex-1 items-center gap-1 truncate text-sm">
+          <span className={cn("font-medium", highlighted ? "text-signal-fatal" : "text-signal-info")}>
+            {filename}
+          </span>
+          <span className="text-muted-foreground/50">:</span>
+          <span className={cn(highlighted ? "text-signal-fatal" : "text-signal-warning/80")}>
+            {frame.line}
+          </span>
+          {frame.column && (
+            <>
+              <span className="text-muted-foreground/50">:</span>
+              <span className="text-muted-foreground/70">{frame.column}</span>
+            </>
           )}
-
-          {frame.isVendor && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider bg-muted/20 text-muted-foreground border border-issues-border flex items-center gap-1">
-              <Package className="h-2.5 w-2.5" />
-              {t("vendor")}
-            </span>
+          {frame.function && frame.function !== "(anonymous)" && (
+            <span className="ml-3 truncate text-muted-foreground/70">in {frame.function}</span>
           )}
-        </div>
-
-        {/* Function name */}
-        <code className="font-mono text-xs text-muted-foreground shrink-0 hidden md:block">
-          {frame.function}
         </code>
+        {highlighted && (
+          <span className="shrink-0 rounded border border-signal-fatal/30 bg-signal-fatal/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-signal-fatal">
+            {t("source")}
+          </span>
+        )}
       </button>
 
-      {/* Expanded content */}
       {expanded && (
-        <div className="px-4 pb-4">
-          {/* Full path */}
-          <div className="flex items-start gap-2 ml-8 overflow-x-visible">
-            <code className="font-mono text-xs text-muted-foreground break-all">
-              {frame.file}
-            </code>
-            <CopyButton text={`${frame.file}:${frame.line}`} />
-          </div>
+        <div className="flex items-start gap-2 pb-2 pl-[4.25rem] pr-6 pt-0 md:pr-8">
+          <code className="flex-1 break-all text-xs text-muted-foreground/80">{frame.file}</code>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(`${frame.file}:${frame.line}`);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="shrink-0 rounded p-1 hover:bg-muted/20"
+            title="Copy"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-signal-ok" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground/60" />
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
-          {/* Function info */}
-          {frame.function && frame.function !== "(anonymous)" && (
-            <div className="ml-8 mt-2">
-              <span className="text-xs text-muted-foreground">{t("in")} </span>
-              <code className="font-mono text-xs text-foreground">{frame.function}</code>
-            </div>
-          )}
+function FrameworkGroup({
+  frames,
+  startIndex,
+}: {
+  frames: StackFrame[];
+  startIndex: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const t = useTranslations("issueDetail.stackTrace");
+  const label = frames.length === 1 ? t("frameworkFrames", { count: frames.length }) : t("frameworkFramesPlural", { count: frames.length });
+
+  return (
+    <div className="border-b border-dashboard-border/60 last:border-0">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-3 px-6 py-2 text-left font-mono text-xs text-muted-foreground/70 transition-colors hover:bg-muted/20 md:px-8"
+      >
+        <span className="text-muted-foreground/60">
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </span>
+        <span className="italic">[+{label}]</span>
+      </button>
+      {expanded && (
+        <div>
+          {frames.map((frame, i) => (
+            <FrameRow key={`${frame.file}-${frame.line}-${i}`} frame={frame} index={startIndex + i} highlighted={false} />
+          ))}
         </div>
       )}
     </div>
@@ -227,72 +244,46 @@ export function StackTraceViewer({
   highlightLine,
   className,
 }: StackTraceViewerProps) {
-  const [showVendor, setShowVendor] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [copied, setCopied] = useState(false);
   const t = useTranslations("issueDetail.stackTrace");
 
   const frames = useMemo(() => parseStackTrace(stack), [stack]);
-  const displayFrames = showVendor ? frames : frames.filter(f => !f.isVendor);
-  const vendorCount = frames.filter(f => f.isVendor).length;
-
-  const handleCopyAll = () => {
-    navigator.clipboard.writeText(stack);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const segments = useMemo(() => groupFrames(frames, highlightFile, highlightLine), [frames, highlightFile, highlightLine]);
 
   return (
-    <div className={cn(
-      "rounded-xl border border-issues-border bg-issues-surface overflow-x-auto",
-      className
-    )}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-issues-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className={cn("flex flex-col", className)}>
+      <div className="flex items-center justify-between border-b border-dashboard-border px-6 py-3 md:px-8">
+        <div className="flex items-center gap-2">
           <Code2 className="h-4 w-4 text-muted-foreground" />
           <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t("title")}
           </h2>
-          <span className="px-1.5 py-0.5 rounded bg-muted/10 text-[10px] font-mono text-muted-foreground">
-            {t("frames", { count: displayFrames.length })}
+          <span className="rounded bg-muted/20 px-2 py-0.5 font-mono text-xs text-muted-foreground">
+            {t("frames", { count: frames.length })}
           </span>
         </div>
-
         <div className="flex items-center gap-2">
-          {vendorCount > 0 && (
-            <button
-              onClick={() => setShowVendor(!showVendor)}
-              className={cn(
-                "px-2 py-1 rounded text-[10px] font-mono transition-colors",
-                showVendor
-                  ? "bg-muted/20 text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {showVendor ? t("hideVendor", { count: vendorCount }) : t("showVendor", { count: vendorCount })}
-            </button>
-          )}
-
           <button
-            onClick={() => setShowRaw(!showRaw)}
+            onClick={() => setShowRaw((v) => !v)}
             className={cn(
-              "px-2 py-1 rounded text-[10px] font-mono transition-colors",
-              showRaw
-                ? "bg-muted/20 text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+              "rounded px-2 py-1 font-mono text-xs transition-colors",
+              showRaw ? "bg-muted/30 text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {showRaw ? t("parsed") : t("raw")}
           </button>
-
           <button
-            onClick={handleCopyAll}
-            className="p-1.5 rounded hover:bg-muted/20 transition-colors"
+            onClick={() => {
+              navigator.clipboard.writeText(stack);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="rounded p-1 hover:bg-muted/20"
             title="Copy all"
           >
             {copied ? (
-              <Check className="h-4 w-4 text-signal-info" />
+              <Check className="h-4 w-4 text-signal-ok" />
             ) : (
               <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
             )}
@@ -300,37 +291,20 @@ export function StackTraceViewer({
         </div>
       </div>
 
-      {/* Content */}
       {showRaw ? (
-        <div className="p-4">
-          <pre className="font-mono text-xs text-muted-foreground whitespace-pre-wrap break-all overflow-x-auto">
-            {stack}
-          </pre>
-        </div>
+        <pre className="whitespace-pre-wrap break-all px-6 py-4 font-mono text-sm text-muted-foreground md:px-8">
+          {stack}
+        </pre>
+      ) : segments.length === 0 ? (
+        <p className="px-6 py-8 text-center text-sm text-muted-foreground md:px-8">{t("noFrames")}</p>
       ) : (
         <div>
-          {displayFrames.length === 0 ? (
-            <p className="p-4 text-center text-sm text-muted-foreground">
-              {t("noFrames")}
-            </p>
-          ) : (
-            displayFrames.map((frame, index) => {
-              const isHighlighted =
-                highlightFile &&
-                highlightLine &&
-                frame.file.includes(highlightFile) &&
-                frame.line === highlightLine;
-
-              return (
-                <FrameItem
-                  key={`${frame.file}-${frame.line}-${index}`}
-                  frame={frame}
-                  index={index}
-                  isHighlighted={!!isHighlighted}
-                  defaultExpanded={index === 0 || !!isHighlighted}
-                />
-              );
-            })
+          {segments.map((seg, i) =>
+            seg.kind === "frame" ? (
+              <FrameRow key={i} frame={seg.frame} index={seg.absIndex} highlighted={seg.highlighted} />
+            ) : (
+              <FrameworkGroup key={i} frames={seg.frames} startIndex={seg.startIndex} />
+            )
           )}
         </div>
       )}

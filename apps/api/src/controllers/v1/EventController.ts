@@ -29,6 +29,18 @@ const breadcrumbSchema = z.object({
   data: z.record(z.string(), z.any()).optional(),
 });
 
+// Structured stack frame schema (SDK provides these from parsed exceptions)
+const frameSchema = z.object({
+  filename: z.string().max(2000),
+  function: z.string().max(500).nullable().optional(),
+  lineno: z.number().int().nullable().optional(),
+  colno: z.number().int().nullable().optional(),
+  in_app: z.boolean().optional(),
+  context_line: z.string().max(2000).nullable().optional(),
+  pre_context: z.array(z.string().max(2000)).max(20).nullable().optional(),
+  post_context: z.array(z.string().max(2000)).max(20).nullable().optional(),
+});
+
 const eventSchema = z.object({
   message: z.string().min(1).max(10000),
   file: z.string().min(1).max(1000),
@@ -47,6 +59,13 @@ const eventSchema = z.object({
   release: z.string().max(200).optional().nullable(),
   // User identifier for impact analysis
   user_id: z.string().max(200).optional().nullable(),
+  // Structured stack frames parsed by the SDK (preferred over raw `stack`)
+  frames: z.array(frameSchema).max(100).optional(),
+  // Explicit fingerprint override (SDK-computed grouping key, 64 hex max)
+  fingerprint: z.string().max(128).optional().nullable(),
+  // Distributed tracing correlation (W3C traceparent)
+  trace_id: z.string().max(64).optional().nullable(),
+  span_id: z.string().max(32).optional().nullable(),
 });
 
 /**
@@ -163,6 +182,10 @@ export const submit = async (c: Context<AppEnv>) => {
       createdAt: createdAt.toISOString(),
       release: input.release || null,
       userId: input.user_id || null,
+      frames: input.frames,
+      sdkFingerprint: input.fingerprint || null,
+      traceId: input.trace_id || null,
+      spanId: input.span_id || null,
     }, { jobId });
 
     logger.debug("Event queued", {

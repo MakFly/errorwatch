@@ -19,50 +19,40 @@ const TAG_COLORS: Record<string, string> = {
 };
 
 function getTagColor(key: string): string {
-  return TAG_COLORS[key.toLowerCase()] ?? "bg-issues-bg/50 text-foreground border-issues-border";
+  return TAG_COLORS[key.toLowerCase()] ?? "bg-muted/20 text-foreground border-dashboard-border";
 }
 
 export function TagsPanel({ tags, onTagClick, className }: TagsPanelProps) {
   const t = useTranslations("issueDetail.tagsPanel");
 
-  if (!tags || Object.keys(tags).length === 0) {
-    return null;
-  }
+  if (!tags || Object.keys(tags).length === 0) return null;
 
   const entries = Object.entries(tags);
 
   return (
-    <div
-      className={cn(
-        "rounded-lg border border-issues-border bg-issues-surface/30 p-4",
-        className
-      )}
-    >
-      <div className="flex items-center gap-2 mb-4">
+    <div className={cn("border-t border-dashboard-border", className)}>
+      <div className="flex items-center gap-2 border-b border-dashboard-border/60 bg-muted/10 px-6 py-2 md:px-8">
         <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-        <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
+        <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {t("title")}
         </h3>
-        <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-          {entries.length}
-        </span>
+        <span className="font-mono text-xs text-muted-foreground/70">· {entries.length}</span>
       </div>
-
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 px-6 py-3 md:px-8">
         {entries.map(([key, value]) => (
           <button
             key={key}
             onClick={() => onTagClick?.(key, value)}
             disabled={!onTagClick}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-left transition-colors",
+              "inline-flex items-baseline gap-1.5 rounded-md border px-2.5 py-1 font-mono text-xs text-left transition-opacity",
               getTagColor(key),
               onTagClick && "hover:opacity-80 cursor-pointer"
             )}
           >
-            <span className="font-mono text-[10px] font-medium opacity-70">{key}</span>
-            <span className="text-[10px] opacity-30">·</span>
-            <span className="font-mono text-[10px] font-semibold">{value}</span>
+            <span className="text-[10px] opacity-70">{key}</span>
+            <span className="opacity-40">=</span>
+            <span className="font-semibold">{value}</span>
           </button>
         ))}
       </div>

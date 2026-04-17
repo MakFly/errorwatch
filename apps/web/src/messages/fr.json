@@ -22,7 +22,10 @@
     "theme": "Thème",
     "themeLight": "Clair",
     "themeDark": "Sombre",
-    "themeSystem": "Système"
+    "themeSystem": "Système",
+    "justNow": "à l'instant",
+    "now": "maintenant",
+    "copyToClipboard": "Copier dans le presse-papiers"
   },
   "navigation": {
     "dashboard": "Tableau de bord",
@@ -32,9 +35,14 @@
     "stats": "Statistiques",
     "performance": "Performance",
     "overview": "Vue d'ensemble",
+    "requests": "Requêtes HTTP",
     "transactions": "Transactions",
-    "webVitals": "Web Vitals",
+    "database": "Base de données",
     "databaseQueries": "Requêtes BDD",
+    "cache": "Cache",
+    "http": "Appels HTTP",
+    "queues": "Files d'attente",
+    "webVitals": "Web Vitals",
     "settings": "Paramètres",
     "help": "Aide",
     "admin": "Admin",
@@ -87,13 +95,18 @@
     "environmentDevelopment": "Développement",
     "createSuccess": "Projet créé !",
     "createSuccessDescription": "\"{name}\" est prêt à recevoir des erreurs.",
-    "createError": "Échec de la création du projet"
+    "createError": "Échec de la création du projet",
+    "createSubmit": "Créer le projet",
+    "validationRequired": "Le nom du projet est requis",
+    "validationTooLong": "Le nom du projet est trop long",
+    "validationSameAsOrg": "Le nom du projet ne peut pas être identique au nom de l'organisation"
   },
   "platform": {
     "fullstack": "Fullstack",
     "frontend": "Frontend",
     "backend": "Backend",
-    "php": "PHP"
+    "php": "PHP",
+    "infrastructure": "Infrastructure"
   },
   "upgrade": {
     "title": "Passer à Pro",
@@ -112,7 +125,11 @@
     "upgradeNow": "Passer à Pro",
     "starting": "Démarrage...",
     "checkoutError": "Échec du démarrage du paiement",
-    "checkoutUrlUnavailable": "URL de paiement indisponible"
+    "checkoutUrlUnavailable": "URL de paiement indisponible",
+    "resourceProject": "projet",
+    "resourceProjects": "projets",
+    "resourceOrganization": "organisation",
+    "resourceOrganizations": "organisations"
   },
   "noProject": {
     "title": "Aucun projet configuré",
@@ -228,17 +245,37 @@
     "errorRate": "Taux d'erreur",
     "aboveThreshold": "Au-dessus du seuil",
     "subPages": {
+      "requests": {
+        "title": "Requêtes HTTP",
+        "description": "Endpoints classés par impact (volume × latence) et taux d'erreur."
+      },
       "transactions": {
         "title": "Transactions",
-        "description": "Consultez toutes les transactions, groupées ou individuelles, avec filtres et pagination."
+        "description": "Toutes les transactions, groupées ou individuelles, avec filtres et pagination."
       },
-      "webVitals": {
-        "title": "Web Vitals",
-        "description": "Métriques Core Web Vitals : LCP, FID, CLS, TTFB, INP."
+      "database": {
+        "title": "Base de données",
+        "description": "Requêtes dupliquées (N+1), requêtes lentes et motifs fréquents."
       },
       "databaseQueries": {
         "title": "Requêtes BDD",
         "description": "Requêtes dupliquées (N+1), requêtes lentes et analyse d'impact par endpoint."
+      },
+      "cache": {
+        "title": "Cache",
+        "description": "Opérations de cache groupées par op avec taux de hit et latence."
+      },
+      "http": {
+        "title": "Appels HTTP",
+        "description": "Appels HTTP sortants groupés par hôte et méthode."
+      },
+      "queues": {
+        "title": "Files d'attente",
+        "description": "Jobs en arrière-plan et consommateurs de bus de messages (Messenger, Laravel Queue)."
+      },
+      "webVitals": {
+        "title": "Web Vitals",
+        "description": "Core Web Vitals (LCP, CLS, INP) au p75 avec seuils d'évaluation."
       }
     },
     "transactions": {
@@ -269,26 +306,6 @@
     "slowestTransactions": {
       "title": "Transactions les plus lentes",
       "noData": "Aucune transaction lente trouvée."
-    },
-    "webVitals": {
-      "title": "Web Vitals",
-      "noData": "Aucune donnée Web Vitals disponible",
-      "noDataHint": "Les Web Vitals mesurent les performances navigateur (LCP, FID, CLS). Pour les projets serveur, consultez la section Transactions pour les temps de réponse et les performances des requêtes.",
-      "status": {
-        "good": "Bon",
-        "needsImprovement": "À améliorer",
-        "poor": "Mauvais"
-      },
-      "descriptions": {
-        "LCP": "Performance de chargement",
-        "FID": "Interactivité",
-        "CLS": "Stabilité visuelle",
-        "TTFB": "Réponse serveur",
-        "INP": "Réactivité"
-      },
-      "serverSideTitle": "Projet server-side",
-      "serverSideMessage": "Ce projet utilise une plateforme server-side ({platform}). Les Web Vitals mesurent les performances navigateur (LCP, FID, CLS) et s'appliquent aux projets frontend.",
-      "serverSideHint": "Consultez plutôt :"
     },
     "apdex": {
       "title": "Score Apdex",
@@ -394,6 +411,33 @@
     "backToReplays": "Retour aux rejeux",
     "noEventsRecorded": "Aucun événement enregistré",
     "noEventsDesc": "Cette session ne contient aucun événement enregistré. L'utilisateur a peut-être quitté la page avant que des interactions soient capturées.",
+    "device": {
+      "desktop": "Ordinateur",
+      "mobile": "Mobile",
+      "tablet": "Tablette",
+      "unknown": "Inconnu"
+    },
+    "empty": {
+      "noSessions": "Aucune session enregistrée"
+    },
+    "sdkNotInstalled": {
+      "title": "Non disponible",
+      "message": "SDK non installé"
+    },
+    "columns": {
+      "session": "Session",
+      "duration": "Durée",
+      "page": "Page",
+      "device": "Appareil",
+      "environment": "Environnement",
+      "errors": "Erreurs"
+    },
+    "actions": {
+      "watchReplay": "Voir le rejeu",
+      "viewIssue": "Voir le problème",
+      "openPage": "Ouvrir la page",
+      "openMenu": "Ouvrir le menu"
+    },
     "filters": {
       "searchByUrl": "Rechercher par URL...",
       "allBrowsers": "Tous les navigateurs",
@@ -1012,7 +1056,30 @@
       "avg": "Moy. :",
       "perHour": "/h",
       "environments": "Environnements",
-      "noData": "Aucune donnée"
+      "noData": "Aucune donnée",
+      "trafficShape": {
+        "title": "Profil de trafic",
+        "subtitle": "Volume de requêtes sur la période sélectionnée",
+        "total": "Total",
+        "empty": "Aucune donnée de trafic pour cette période",
+        "legend": {
+          "requests": "Requêtes",
+          "peak": "Pic"
+        }
+      },
+      "exceptionsInbox": {
+        "title": "Boîte d'exceptions",
+        "viewAll": "Voir tout",
+        "empty": "Aucune exception pour ce projet"
+      }
+    },
+    "kpi": {
+      "requests": "Requêtes",
+      "latencyP95": "Latence p95",
+      "newIssues24h": "Nouveaux problèmes 24h",
+      "exceptions": "Exceptions",
+      "uptime": "Disponibilité",
+      "events": "Événements"
     }
   },
   "stats": {
@@ -1076,6 +1143,15 @@
       "subtitle": "Signaux entrants nécessitant votre attention",
       "signals": "signaux"
     },
+    "severity": {
+      "fatal": "Fatal",
+      "error": "Erreur",
+      "warning": "Avertissement",
+      "warningShort": "Avert.",
+      "info": "Info",
+      "debug": "Debug",
+      "noSignalsDetected": "Aucun signal détecté"
+    },
     "table": {
       "columnSignal": "Signal",
       "columnMessage": "Message",
@@ -1095,7 +1171,9 @@
       "quickActions": "Actions rapides",
       "viewDetails": "Voir les détails",
       "sourceLocation": "Emplacement source",
-      "events": "événements"
+      "events": "événements",
+      "resolve": "Résoudre",
+      "ignore": "Ignorer"
     },
     "filters": {
       "searchPlaceholder": "Rechercher des signaux...",
@@ -1132,7 +1210,10 @@
       "noMatchingSignals": "Aucun signal correspondant. Essayez d ajuster vos filtres.",
       "noSignals": "Aucun signal détecté. Votre application fonctionne correctement.",
       "mergeSuccess": "Fusionné {count} problème(s) en 1",
-      "mergeError": "Échec de la fusion des problèmes"
+      "mergeError": "Échec de la fusion des problèmes",
+      "pageOf": "Page {page} sur {totalPages} ({total} au total)",
+      "previous": "Précédent",
+      "next": "Suivant"
     }
   },
   "issueDetail": {
@@ -1164,7 +1245,16 @@
       "noFrames": "Aucun cadre de pile trouvé",
       "source": "source",
       "vendor": "vendor",
+      "frameworkFrames": "{count} cadre framework",
+      "frameworkFramesPlural": "{count} cadres framework",
       "in": "dans"
+    },
+    "tabs": {
+      "stack": "Trace de pile",
+      "breadcrumbs": "Fil d'Ariane",
+      "request": "Requête",
+      "context": "Contexte",
+      "trace": "Trace distribuée"
     },
     "eventTimeline": {
       "title": "Chronologie des événements",
@@ -1370,25 +1460,87 @@
     "viewAll": "Voir tout",
     "bytesPerSec": "octets/s",
     "percentage": "%",
-    "guide": {
-      "title": "Démarrer le monitoring d'infrastructure",
-      "subtitle": "Installez l'agent de métriques ErrorWatch sur vos serveurs pour collecter les métriques CPU, mémoire, réseau et disque en temps réel.",
-      "requirements": "Prérequis",
-      "requirementGo": "Go 1.21+ (pour la compilation depuis les sources)",
-      "requirementOs": "Linux ou macOS",
-      "step1Title": "Installer l'agent",
-      "step1Desc": "Clonez le dépôt et compilez le binaire :",
-      "step2Title": "Initialiser la configuration",
-      "step2Desc": "Générez le fichier de configuration par défaut :",
-      "step3Title": "Configurer votre clé API",
-      "step3Desc": "Modifiez le fichier de configuration avec la clé API de votre projet :",
-      "step3Note": "Remplacez YOUR_API_KEY par la clé depuis Paramètres > Clés API.",
-      "step4Title": "Lancer l'agent",
-      "step4Desc": "Démarrez l'agent pour collecter les métriques :",
-      "step4Note": "Les métriques apparaîtront ici en quelques secondes.",
-      "docsLink": "Voir la documentation complète",
-      "alternativeTitle": "Alternative : Variables d'environnement",
-      "alternativeDesc": "Vous pouvez aussi configurer l'agent via des variables d'environnement :"
+    "sdkNotInstalled": {
+      "title": "Non disponible",
+      "message": "SDK non installé"
     }
+  },
+  "breadcrumbs": {
+    "title": "Fil d'Ariane",
+    "actionsCount": "({count} actions)",
+    "showEarlier": "Afficher {count} fils antérieurs",
+    "secondsBefore": "il y a {n}s",
+    "minutesBefore": "il y a {m}m {s}s",
+    "category": {
+      "ui": "UI",
+      "navigation": "Navigation",
+      "console": "Console",
+      "http": "HTTP",
+      "user": "Utilisateur"
+    }
+  },
+  "sdkInstructions": {
+    "setupTitle": "Configurer {name}",
+    "subtitle": "Installez le SDK et configurez votre projet",
+    "installStep": "Installer le package",
+    "configureStep": "Configurer votre application",
+    "apiKeyTitle": "Votre clé API",
+    "apiKeyNote": "Gardez cette clé secrète. Elle sert à authentifier vos rapports d'erreur.",
+    "terminal": "Terminal",
+    "configuration": "Configuration",
+    "copy": "Copier",
+    "copied": "Copié !"
+  },
+  "pageHeader": {
+    "range": {
+      "last24h": "24 dernières heures",
+      "last7d": "7 derniers jours",
+      "last30d": "30 derniers jours",
+      "last90d": "90 derniers jours"
+    },
+    "dashboard": { "title": "Vue d'ensemble", "description": "Surveillez la santé de votre application d'un coup d'œil" },
+    "issues": { "title": "Problèmes", "description": "Signaux entrants nécessitant votre attention" },
+    "logs": { "title": "Journaux", "description": "Flux en direct des logs applicatifs structurés" },
+    "stats": { "title": "Statistiques", "description": "Tendances et analyses historiques des erreurs" },
+    "replays": { "title": "Rejeux", "description": "Visionnez les sessions utilisateur ayant rencontré des erreurs" },
+    "infrastructure": { "title": "Infrastructure", "description": "Métriques d'hôtes collectées par l'agent ErrorWatch" },
+    "crons": { "title": "Crons", "description": "Exécutions planifiées et battements de cœur" },
+    "settings": { "title": "Paramètres", "description": "Configuration du projet, membres et clés API" },
+    "admin": { "title": "Admin", "description": "Administration et maintenance de la plateforme" },
+    "help": { "title": "Aide", "description": "Guides, intégrations et dépannage" },
+    "performance": { "title": "Performance", "description": "Débit, latence et Apdex de ce projet" },
+    "performanceRequests": { "title": "Requêtes HTTP", "description": "Endpoints classés par volume, latence et erreurs" },
+    "performanceRequestDetail": { "title": "Détail endpoint", "description": "Latence, débit et top requêtes pour cet endpoint" },
+    "performanceTransactions": { "title": "Transactions", "description": "Analyse des performances par endpoint" },
+    "performanceDatabase": { "title": "Base de données", "description": "Requêtes lentes, détection N+1 et motifs fréquents" },
+    "performanceCache": { "title": "Cache", "description": "Opérations de cache groupées par op avec taux de hit" },
+    "performanceHttp": { "title": "Appels HTTP", "description": "Appels HTTP sortants groupés par hôte et méthode" },
+    "performanceQueues": { "title": "Files d'attente", "description": "Jobs en arrière-plan et consommateurs de bus de messages" },
+    "performanceWebVitals": { "title": "Web Vitals", "description": "Core Web Vitals au p75 avec évaluation" }
+  },
+  "metadata": {
+    "dashboard": "Tableau de bord",
+    "admin": "Admin",
+    "crons": "Crons",
+    "cronMonitor": "Moniteur Cron",
+    "help": "Aide",
+    "infrastructure": "Infrastructure",
+    "issues": "Problèmes",
+    "issueDetail": "Détail du problème",
+    "logs": "Journaux",
+    "performance": "Performance",
+    "performanceRequests": "Performance · Requêtes HTTP",
+    "performanceRequestDetail": "Performance · Endpoint",
+    "performanceCache": "Performance · Cache",
+    "performanceHttp": "Performance · Appels HTTP",
+    "performanceDatabase": "Performance · Base de données",
+    "performanceQueues": "Performance · Files d'attente",
+    "performanceWebVitals": "Performance · Web Vitals",
+    "performanceTransactions": "Performance · Transactions",
+    "performanceTransactionDetail": "Performance · Transaction",
+    "replays": "Rejeux",
+    "replayDetail": "Session de rejeu",
+    "settings": "Paramètres",
+    "stats": "Statistiques"
   }
 }

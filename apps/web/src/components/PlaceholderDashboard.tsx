@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { api } from "@/server/api";
 import {
@@ -92,6 +93,7 @@ function PlaceholderErrorList() {
 }
 
 export function PlaceholderDashboard() {
+  const t = useTranslations("placeholderDashboard");
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -114,7 +116,7 @@ export function PlaceholderDashboard() {
       <div className="flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Loading your dashboard...</p>
+          <p className="text-sm text-muted-foreground">{t("loadingDashboard")}</p>
         </div>
       </div>
     );
@@ -126,9 +128,9 @@ export function PlaceholderDashboard() {
       <div className="pointer-events-none select-none opacity-30 blur-[1px] lg:ml-64 p-4">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("dashboardTitle")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Overview of your application&apos;s error monitoring
+            {t("dashboardOverview")}
           </p>
         </div>
 
@@ -136,22 +138,22 @@ export function PlaceholderDashboard() {
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <PlaceholderStatCard
             icon={<AlertTriangle className="h-6 w-6" />}
-            title="Unresolved"
+            title={t("statUnresolved")}
             color="red"
           />
           <PlaceholderStatCard
             icon={<Activity className="h-6 w-6" />}
-            title="Events today"
+            title={t("statEventsToday")}
             color="violet"
           />
           <PlaceholderStatCard
             icon={<Bug className="h-6 w-6" />}
-            title="New issues (24h)"
+            title={t("statNewIssues")}
             color="amber"
           />
           <PlaceholderStatCard
             icon={<Clock className="h-6 w-6" />}
-            title="Avg response"
+            title={t("statAvgResponse")}
             color="emerald"
           />
         </div>
@@ -164,9 +166,9 @@ export function PlaceholderDashboard() {
         {/* Error list */}
         <div>
           <div className="mb-4">
-            <h2 className="text-lg font-semibold">Recent Errors</h2>
+            <h2 className="text-lg font-semibold">{t("recentErrorsTitle")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Latest issues from your applications
+              {t("recentErrorsDescription")}
             </p>
           </div>
           <PlaceholderErrorList />
@@ -181,16 +183,16 @@ export function PlaceholderDashboard() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight">No project configured</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{t("overlayTitle")}</h2>
             <p className="text-muted-foreground">
-              Complete the setup to start monitoring errors in your applications.
+              {t("overlayDescription")}
             </p>
           </div>
 
           <Button asChild className="w-full h-11 gap-2">
             <Link href="/onboarding">
               <Sparkles className="h-4 w-4" />
-              Complete Setup
+              {t("completeSetup")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

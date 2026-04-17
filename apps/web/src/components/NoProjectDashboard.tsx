@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { Layers, Plus, ArrowRight, Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 import { trpc } from "@/lib/trpc/client";
 import { useRouter } from "next/navigation";
 
 export function NoProjectDashboard() {
+  const t = useTranslations("noProject");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const router = useRouter();
   const { data: organizations } = trpc.organizations.getAll.useQuery();
@@ -37,12 +39,12 @@ export function NoProjectDashboard() {
         {/* Content */}
         <div className="space-y-3">
           <h1 className="text-3xl font-bold tracking-tight">
-            No project configured
+            {t("title")}
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
             {hasOrganization
-              ? "Create your first project to start monitoring errors in your applications."
-              : "You need to complete the onboarding to create your organization and first project."}
+              ? t("descriptionWithOrg")
+              : t("descriptionWithoutOrg")}
           </p>
         </div>
 
@@ -53,9 +55,9 @@ export function NoProjectDashboard() {
               <Plus className="h-6 w-6" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold">Create a project</h3>
+              <h3 className="font-semibold">{t("createProjectTitle")}</h3>
               <p className="text-sm text-muted-foreground">
-                A project represents an application you want to monitor
+                {t("createProjectDescription")}
               </p>
             </div>
           </div>
@@ -63,15 +65,15 @@ export function NoProjectDashboard() {
           <div className="border-t border-border/50 pt-4 space-y-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Receive error alerts in real-time</span>
+              <span>{t("featureAlerts")}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Track stack traces and context</span>
+              <span>{t("featureStackTraces")}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Support for 9+ frameworks</span>
+              <span>{t("featureFrameworks")}</span>
             </div>
           </div>
         </div>
@@ -84,7 +86,7 @@ export function NoProjectDashboard() {
             onClick={() => setShowCreateDialog(true)}
           >
             <Plus className="h-4 w-4" />
-            Create your first project
+            {t("createFirstProject")}
           </Button>
         ) : (
           <Button
@@ -92,7 +94,7 @@ export function NoProjectDashboard() {
             className="w-full h-12 gap-2"
             onClick={() => router.push("/onboarding")}
           >
-            Complete onboarding
+            {t("completeOnboarding")}
             <ArrowRight className="h-4 w-4" />
           </Button>
         )}

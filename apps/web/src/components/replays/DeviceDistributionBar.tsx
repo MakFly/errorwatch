@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Monitor, Smartphone, Tablet } from "lucide-react";
@@ -13,28 +14,13 @@ interface DeviceDistributionBarProps {
   className?: string;
 }
 
-const deviceConfig: Record<
+const deviceStyles: Record<
   DeviceType,
-  { label: string; color: string; bgColor: string; Icon: typeof Monitor }
+  { color: string; bgColor: string; Icon: typeof Monitor }
 > = {
-  desktop: {
-    label: "Desktop",
-    color: "bg-blue-500",
-    bgColor: "bg-blue-500/20",
-    Icon: Monitor,
-  },
-  mobile: {
-    label: "Mobile",
-    color: "bg-green-500",
-    bgColor: "bg-green-500/20",
-    Icon: Smartphone,
-  },
-  tablet: {
-    label: "Tablet",
-    color: "bg-purple-500",
-    bgColor: "bg-purple-500/20",
-    Icon: Tablet,
-  },
+  desktop: { color: "bg-blue-500",   bgColor: "bg-blue-500/20",   Icon: Monitor },
+  mobile:  { color: "bg-green-500",  bgColor: "bg-green-500/20",  Icon: Smartphone },
+  tablet:  { color: "bg-purple-500", bgColor: "bg-purple-500/20", Icon: Tablet },
 };
 
 export function DeviceDistributionBar({
@@ -44,6 +30,7 @@ export function DeviceDistributionBar({
   isLoading,
   className,
 }: DeviceDistributionBarProps) {
+  const t = useTranslations("replays");
   const total = stats.desktop + stats.mobile + stats.tablet;
 
   // Loading state
@@ -79,7 +66,7 @@ export function DeviceDistributionBar({
       >
         <div className="h-3 w-full rounded-full bg-issues-border" />
         <p className="mt-3 text-center text-sm text-muted-foreground">
-          No sessions recorded
+          {t("empty.noSessions")}
         </p>
       </div>
     );
@@ -100,7 +87,8 @@ export function DeviceDistributionBar({
       <div className="flex h-3 w-full overflow-hidden rounded-full bg-issues-border">
         {segments.map((device) => {
           const percentage = (stats[device] / total) * 100;
-          const config = deviceConfig[device];
+          const styles = deviceStyles[device];
+          const label = t(`device.${device}` as const);
 
           return (
             <button
@@ -110,13 +98,13 @@ export function DeviceDistributionBar({
               }
               className={cn(
                 "h-full transition-all hover:opacity-80",
-                config.color,
+                styles.color,
                 activeFilter !== "all" &&
                   activeFilter !== device &&
                   "opacity-30"
               )}
               style={{ width: `${percentage}%` }}
-              title={`${config.label}: ${stats[device]} (${percentage.toFixed(1)}%)`}
+              title={`${label}: ${stats[device]} (${percentage.toFixed(1)}%)`}
             />
           );
         })}
@@ -125,9 +113,9 @@ export function DeviceDistributionBar({
       {/* Labels */}
       <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
         {segments.map((device) => {
-          const config = deviceConfig[device];
+          const styles = deviceStyles[device];
           const isActive = activeFilter === device;
-          const Icon = config.Icon;
+          const Icon = styles.Icon;
 
           return (
             <button
@@ -138,7 +126,7 @@ export function DeviceDistributionBar({
               className={cn(
                 "flex items-center gap-2 rounded-md px-2 py-1 text-sm transition-all",
                 isActive
-                  ? cn(config.bgColor, "ring-1 ring-current")
+                  ? cn(styles.bgColor, "ring-1 ring-current")
                   : "hover:bg-issues-surface"
               )}
             >
@@ -155,7 +143,7 @@ export function DeviceDistributionBar({
                 )}
                 style={{ fontSize: "10px" }}
               >
-                {config.label}
+                {t(`device.${device}` as const)}
               </span>
               <span
                 className={cn(

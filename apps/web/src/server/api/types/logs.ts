@@ -16,6 +16,9 @@ export type ApplicationLog = {
   url: string | null;
   requestId: string | null;
   userId: string | null;
+  // Distributed tracing correlation (W3C traceparent)
+  traceId: string | null;
+  spanId: string | null;
   ingestedAt: Date;
 };
 

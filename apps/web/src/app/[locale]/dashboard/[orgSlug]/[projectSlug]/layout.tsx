@@ -1,11 +1,23 @@
 import { ReactNode } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getDashboardCollections, getDashboardOrganization, getDashboardProject } from "../../dashboard-data";
 import { ProjectDashboardShell } from "./project-shell";
 
 interface ProjectLayoutProps {
   children: ReactNode;
-  params: Promise<{ orgSlug: string; projectSlug: string }>;
+  params: Promise<{ locale: string; orgSlug: string; projectSlug: string }>;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "metadata" });
+  return { title: t("dashboard") };
 }
 
 export default async function ProjectLayout({

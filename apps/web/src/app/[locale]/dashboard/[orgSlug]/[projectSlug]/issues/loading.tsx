@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function IssuesLoading() {
   return (
-    <div className="min-h-screen bg-issues-bg p-4 md:p-6">
+    <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
       {/* Header */}
       <Skeleton className="h-10 w-64 mb-4" />
 

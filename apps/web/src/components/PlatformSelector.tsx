@@ -1,7 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import type { Platform } from "@/server/api";
+
+type CategoryKey = "fullstack" | "frontend" | "backend" | "php" | "infrastructure";
 
 interface PlatformConfig {
   id: Platform;
@@ -28,12 +31,12 @@ const PLATFORMS: PlatformConfig[] = [
   { id: "metrics-agent", name: "Metrics Agent", icon: "📊", category: "infrastructure" },
 ];
 
-const CATEGORIES = {
-  fullstack: { label: "Fullstack", color: "text-purple-400" },
-  frontend: { label: "Frontend", color: "text-cyan-400" },
-  backend: { label: "Backend", color: "text-green-400" },
-  php: { label: "PHP", color: "text-red-400" },
-  infrastructure: { label: "Infrastructure", color: "text-orange-400" },
+const CATEGORY_STYLES: Record<CategoryKey, { color: string }> = {
+  fullstack: { color: "text-purple-400" },
+  frontend: { color: "text-cyan-400" },
+  backend: { color: "text-green-400" },
+  php: { color: "text-red-400" },
+  infrastructure: { color: "text-orange-400" },
 };
 
 interface PlatformSelectorProps {
@@ -43,9 +46,10 @@ interface PlatformSelectorProps {
 }
 
 export function PlatformSelector({ value, onChange, className }: PlatformSelectorProps) {
-  const groupedPlatforms = Object.entries(CATEGORIES).map(([category, config]) => ({
-    category: category as keyof typeof CATEGORIES,
-    ...config,
+  const t = useTranslations("platform");
+  const groupedPlatforms = (Object.keys(CATEGORY_STYLES) as CategoryKey[]).map((category) => ({
+    category,
+    color: CATEGORY_STYLES[category].color,
     platforms: PLATFORMS.filter((p) => p.category === category),
   }));
 
@@ -54,7 +58,7 @@ export function PlatformSelector({ value, onChange, className }: PlatformSelecto
       {groupedPlatforms.map((group) => (
         <div key={group.category}>
           <h4 className={cn("text-xs font-medium uppercase tracking-wider mb-2", group.color)}>
-            {group.label}
+            {t(group.category)}
           </h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {group.platforms.map((platform) => (

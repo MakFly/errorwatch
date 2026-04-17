@@ -118,9 +118,13 @@ export function ErrorWatchSidebar({
         isActive: pathname.startsWith(`${baseUrl}/performance`),
         children: [
           { title: t("overview"), url: `${baseUrl}/performance`, isActive: pathname === `${baseUrl}/performance` },
+          { title: t("requests"), url: `${baseUrl}/performance/requests`, isActive: pathname.startsWith(`${baseUrl}/performance/requests`) },
           { title: t("transactions"), url: `${baseUrl}/performance/transactions`, isActive: pathname.startsWith(`${baseUrl}/performance/transactions`) },
+          { title: t("database"), url: `${baseUrl}/performance/database`, isActive: pathname === `${baseUrl}/performance/database` },
+          { title: t("cache"), url: `${baseUrl}/performance/cache`, isActive: pathname === `${baseUrl}/performance/cache` },
+          { title: t("http"), url: `${baseUrl}/performance/http`, isActive: pathname === `${baseUrl}/performance/http` },
+          { title: t("queues"), url: `${baseUrl}/performance/queues`, isActive: pathname === `${baseUrl}/performance/queues` },
           { title: t("webVitals"), url: `${baseUrl}/performance/web-vitals`, isActive: pathname === `${baseUrl}/performance/web-vitals` },
-          { title: t("databaseQueries"), url: `${baseUrl}/performance/queries`, isActive: pathname === `${baseUrl}/performance/queries` },
         ],
       },
       {

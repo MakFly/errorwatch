@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Download } from "lucide-react";
 import {
-  StatsHeader,
   HeroChart,
   InsightCard,
   DistributionChart,
   ResolutionMetrics,
 } from "@/components/stats";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { trpc } from "@/lib/trpc/client";
 import type {
   DashboardStats,
@@ -34,6 +35,7 @@ export function StatsPageClient({
   initialInsights,
 }: StatsPageClientProps) {
   const t = useTranslations("stats.insights");
+  const tHeader = useTranslations("pageHeader.stats");
   const [range, setRange] = useState<TimelineRange>("30d");
 
   // Fetch timeline data when range changes
@@ -46,8 +48,22 @@ export function StatsPageClient({
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-      {/* Header with filters */}
-      <StatsHeader dateRange={range} onRangeChange={setRange} />
+      <PageHeader
+        title={tHeader("title")}
+        description={tHeader("description")}
+        dateRange={range}
+        onDateRangeChange={(r) => setRange(r as TimelineRange)}
+        rangeOptions={["24h", "7d", "30d"]}
+      >
+        <button
+          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          onClick={() => {
+            // TODO: implement stats export
+          }}
+        >
+          <Download className="h-4 w-4" />
+        </button>
+      </PageHeader>
 
       {/* Hero Chart */}
       <HeroChart data={chartData} range={range} className="mb-4" />

@@ -29,16 +29,31 @@ help: ## Show this help
 			/^infra-|^db-|^redis-/ {infra=infra"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
 			/^prod-/ {prod=prod"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
 			/^example-/ {ex=ex"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
-			END {print "\n$(YELLOW)DEVELOPMENT:$(RESET)" dev "\n\n$(YELLOW)INFRASTRUCTURE:$(RESET)" infra "\n\n$(YELLOW)EXAMPLES:$(RESET)" ex "\n\n$(YELLOW)PRODUCTION:$(RESET)" prod}'
+			/^sdk-/ {sdk=sdk"\n  $(CYAN)" $$1 "$(RESET)\t" $$2} \
+			END {print "\n$(YELLOW)DEVELOPMENT:$(RESET)" dev "\n\n$(YELLOW)INFRASTRUCTURE:$(RESET)" infra "\n\n$(YELLOW)SDKs (worktree layout):$(RESET)" sdk "\n\n$(YELLOW)EXAMPLES:$(RESET)" ex "\n\n$(YELLOW)PRODUCTION:$(RESET)" prod}'
 
 # =============================================================================
 # DEVELOPMENT
 # =============================================================================
 
-install: ## Install all dependencies
+install: ## Full local setup: deps, .env + secrets, infra, DB schema
+	@command -v bun >/dev/null 2>&1 || { echo "$(RED)bun not found — install from https://bun.sh$(RESET)"; exit 1; }
+	@command -v docker >/dev/null 2>&1 || { echo "$(RED)docker not found$(RESET)"; exit 1; }
 	@echo "$(GREEN)Installing dependencies...$(RESET)"
 	@bun install
-	@test -f .env || (cp .env.example .env && echo "$(YELLOW)Created .env from .env.example — edit it with your values$(RESET)")
+	@echo "$(GREEN)Setting up local environment...$(RESET)"
+	@$(MAKE) env-setup
+	@echo "$(GREEN)Starting infrastructure...$(RESET)"
+	@$(MAKE) infra-up
+	@$(MAKE) infra-wait
+	@echo "$(GREEN)Pushing database schema...$(RESET)"
+	@$(MAKE) db-push
+	@echo ""
+	@echo "$(GREEN)✓ Install complete.$(RESET) Run $(CYAN)make dev$(RESET) to start API + Web."
+
+env-setup: ## Create .env and generate any missing local secrets
+	@chmod +x scripts/setup-env.sh
+	@./scripts/setup-env.sh
 
 build: ## Build all apps for production
 	@echo "$(GREEN)Building applications...$(RESET)"
@@ -112,6 +127,10 @@ db-push: ## Push schema to database
 db-migrate: ## Run migrations
 	@cd apps/api && bun run db:migrate
 
+db-seed: ## Seed database (dev user: dev@test.com / password123)
+	@echo "$(GREEN)Seeding database...$(RESET)"
+	@cd apps/api && bun run seed
+
 db-reset: ## Reset database (destructive!)
 	@echo "$(RED)Resetting database...$(RESET)"
 	@docker compose -f $(COMPOSE_DEV) exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;" 2>/dev/null || true
@@ -160,9 +179,46 @@ prod-db-shell: ## Open PostgreSQL shell (production)
 	@docker compose -f $(COMPOSE_PROD) exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
 # =============================================================================
+# SDK — unified PHP package (Symfony + Laravel) — worktree layout
+#   Shared bare clone:        .git-bare/errorwatch-sdk-php.git
+#   Default-branch worktree:  packages/errorwatch-sdk-php
+#   Feature worktree:         packages/errorwatch-sdk-php-<branch>
+# =============================================================================
+
+SDK_WT := ./scripts/sdk-worktree.sh
+SDK_PHP_URL ?= git@github.com:MakFly/errorwatch-sdk-php.git
+SDK_PHP_DIR := packages/errorwatch-sdk-php
+
+sdk-php-init: ## Clone the SDK (bare) + default-branch worktree at packages/errorwatch-sdk-php
+	@$(SDK_WT) init errorwatch-sdk-php $(SDK_PHP_URL)
+
+sdk-php-convert: ## Convert an existing normal clone to the worktree layout (idempotent, preserves uncommitted changes)
+	@$(SDK_WT) convert errorwatch-sdk-php
+
+sdk-php-wt: ## Add a feature-branch worktree (usage: make sdk-php-wt BRANCH=feat-x)
+	@test -n "$(BRANCH)" || (echo "$(RED)BRANCH variable required: make sdk-php-wt BRANCH=feat-x$(RESET)"; exit 2)
+	@$(SDK_WT) add errorwatch-sdk-php $(BRANCH)
+
+sdk-php-list: ## List SDK worktrees
+	@$(SDK_WT) list errorwatch-sdk-php
+
+sdk-php-install: ## Install composer deps inside the SDK
+	@cd $(SDK_PHP_DIR) && composer install --no-progress
+
+sdk-php-test: ## Run PHPUnit inside the SDK (core + symfony)
+	@cd $(SDK_PHP_DIR) && vendor/bin/phpunit --testsuite=core,symfony
+
+sdk-php-test-all: ## Run PHPUnit all suites (core + symfony + laravel)
+	@cd $(SDK_PHP_DIR) && vendor/bin/phpunit
+
+sdk-php-stan: ## Run PHPStan inside the SDK
+	@cd $(SDK_PHP_DIR) && vendor/bin/phpstan analyse --no-progress
+
+# =============================================================================
 # EXAMPLES
 # =============================================================================
 
+# -------- Laravel --------
 example-laravel-setup: ## Setup Laravel example (auth + API key + deps)
 	@chmod +x scripts/setup-laravel-example.sh
 	@./scripts/setup-laravel-example.sh
@@ -189,3 +245,66 @@ example-laravel-test: ## Send test errors to ErrorWatch from Laravel
 	@curl -s http://localhost:8008/api/v1/test/divide-by-zero 2>/dev/null && echo "" || true
 	@echo ""
 	@echo "$(GREEN)Check your ErrorWatch dashboard for incoming errors.$(RESET)"
+
+# -------- Symfony --------
+EXAMPLE_SYMFONY := examples/example-symfony
+EXAMPLE_SYMFONY_PORT := 8088
+EXAMPLE_SYMFONY_PID := $(EXAMPLE_SYMFONY)/var/run.pid
+
+example-symfony-setup: ## Install composer deps + generate .env if missing
+	@command -v php >/dev/null 2>&1 || { echo "$(RED)php not found — install PHP 8.1+$(RESET)"; exit 1; }
+	@command -v composer >/dev/null 2>&1 || { echo "$(RED)composer not found$(RESET)"; exit 1; }
+	@test -d $(SDK_PHP_DIR) || { echo "$(YELLOW)$(SDK_PHP_DIR) missing — running sdk-php-init$(RESET)"; $(MAKE) sdk-php-init; }
+	@test -f $(EXAMPLE_SYMFONY)/.env || cp $(EXAMPLE_SYMFONY)/.env.example $(EXAMPLE_SYMFONY)/.env
+	@echo "$(GREEN)Installing composer deps...$(RESET)"
+	@cd $(EXAMPLE_SYMFONY) && composer install --no-interaction --prefer-dist
+	@echo "$(GREEN)✓ Setup complete.$(RESET) Edit $(EXAMPLE_SYMFONY)/.env with your ERRORWATCH_API_KEY, then $(CYAN)make example-symfony-start$(RESET)"
+
+example-symfony-start: ## Start Symfony dev server on :8088 (foreground)
+	@echo "$(GREEN)Starting Symfony example on http://localhost:$(EXAMPLE_SYMFONY_PORT)...$(RESET)"
+	@cd $(EXAMPLE_SYMFONY) && php -S 0.0.0.0:$(EXAMPLE_SYMFONY_PORT) -t public public/index.php
+
+example-symfony-start-bg: ## Start Symfony dev server in background (PID in var/run.pid)
+	@mkdir -p $(EXAMPLE_SYMFONY)/var
+	@test ! -f $(EXAMPLE_SYMFONY_PID) || { echo "$(YELLOW)Already running (PID $$(cat $(EXAMPLE_SYMFONY_PID))). Run make example-symfony-stop first.$(RESET)"; exit 0; }
+	@cd $(EXAMPLE_SYMFONY) && (php -S 0.0.0.0:$(EXAMPLE_SYMFONY_PORT) -t public public/index.php > var/server.log 2>&1 & echo $$! > var/run.pid)
+	@sleep 1
+	@echo "$(GREEN)Started (PID $$(cat $(EXAMPLE_SYMFONY_PID)))$(RESET) — logs: $(EXAMPLE_SYMFONY)/var/server.log"
+
+example-symfony-stop: ## Stop the background Symfony dev server
+	@test -f $(EXAMPLE_SYMFONY_PID) || { echo "$(YELLOW)Not running$(RESET)"; exit 0; }
+	@PID=$$(cat $(EXAMPLE_SYMFONY_PID)); kill $$PID 2>/dev/null && echo "$(GREEN)Stopped PID $$PID$(RESET)" || echo "$(YELLOW)Process already gone$(RESET)"
+	@rm -f $(EXAMPLE_SYMFONY_PID)
+
+example-symfony-reset: ## Remove vendor + var/cache + composer.lock (destructive)
+	@echo "$(RED)Resetting $(EXAMPLE_SYMFONY)...$(RESET)"
+	@$(MAKE) example-symfony-stop >/dev/null 2>&1 || true
+	@rm -rf $(EXAMPLE_SYMFONY)/vendor $(EXAMPLE_SYMFONY)/var $(EXAMPLE_SYMFONY)/composer.lock
+	@echo "$(GREEN)✓ Reset done. Run 'make example-symfony-setup' to reinstall.$(RESET)"
+
+example-symfony-trigger: ## Hit every /trigger/* endpoint to generate errors, spans, cache ops, logs, db queries
+	@echo "$(CYAN)Hitting trigger routes on :$(EXAMPLE_SYMFONY_PORT)...$(RESET)"
+	@for flavour in runtime type logic; do \
+		printf "  $(YELLOW)→ /trigger/error?flavour=%s$(RESET)  " "$$flavour"; \
+		curl -s -o /dev/null -w "HTTP %{http_code}\n" "http://localhost:$(EXAMPLE_SYMFONY_PORT)/trigger/error?flavour=$$flavour" || echo "$(RED)down$(RESET)"; \
+	done
+	@for route in http-call cache log slow-query db-list db-n-plus-one; do \
+		printf "  $(YELLOW)→ /trigger/%s$(RESET)  " "$$route"; \
+		curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:$(EXAMPLE_SYMFONY_PORT)/trigger/$$route || echo "$(RED)down$(RESET)"; \
+	done
+	@echo "$(GREEN)Check your ErrorWatch dashboard.$(RESET)"
+
+example-symfony-cron: ## Fire the demo cron command to populate /crons
+	@echo "$(CYAN)Running app:cron:demo 5 times...$(RESET)"
+	@cd $(EXAMPLE_SYMFONY) && for i in 1 2 3 4 5; do php bin/console app:cron:demo --quiet || true; done
+	@echo "$(GREEN)✓ Cron check-ins sent.$(RESET)"
+
+example-symfony-setup-db: ## Initialise the SQLite Doctrine schema + sample data
+	@cd $(EXAMPLE_SYMFONY) && php bin/console app:setup-db
+
+example-symfony-trigger-all: example-symfony-setup-db example-symfony-trigger example-symfony-cron ## One-shot: seed DB, hit every trigger, fire cron
+
+example-symfony: example-symfony-setup example-symfony-start ## Setup + start Symfony example (foreground)
+
+example-symfony-logs: ## Tail the Symfony dev server log
+	@tail -f $(EXAMPLE_SYMFONY)/var/server.log

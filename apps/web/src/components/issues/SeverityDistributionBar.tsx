@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ErrorLevel } from "@/server/api";
@@ -20,35 +21,15 @@ interface SeverityDistributionBarProps {
   className?: string;
 }
 
-const severityConfig: Record<
+const severityStyles: Record<
   ErrorLevel,
-  { label: string; color: string; bgColor: string }
+  { color: string; bgColor: string }
 > = {
-  fatal: {
-    label: "Fatal",
-    color: "bg-signal-fatal",
-    bgColor: "bg-signal-fatal/20",
-  },
-  error: {
-    label: "Error",
-    color: "bg-signal-error",
-    bgColor: "bg-signal-error/20",
-  },
-  warning: {
-    label: "Warning",
-    color: "bg-signal-warning",
-    bgColor: "bg-signal-warning/20",
-  },
-  info: {
-    label: "Info",
-    color: "bg-signal-info",
-    bgColor: "bg-signal-info/20",
-  },
-  debug: {
-    label: "Debug",
-    color: "bg-signal-debug",
-    bgColor: "bg-signal-debug/20",
-  },
+  fatal: { color: "bg-signal-fatal", bgColor: "bg-signal-fatal/20" },
+  error: { color: "bg-signal-error", bgColor: "bg-signal-error/20" },
+  warning: { color: "bg-signal-warning", bgColor: "bg-signal-warning/20" },
+  info: { color: "bg-signal-info", bgColor: "bg-signal-info/20" },
+  debug: { color: "bg-signal-debug", bgColor: "bg-signal-debug/20" },
 };
 
 export function SeverityDistributionBar({
@@ -58,6 +39,7 @@ export function SeverityDistributionBar({
   isLoading,
   className,
 }: SeverityDistributionBarProps) {
+  const t = useTranslations("issues.severity");
   const total =
     stats.fatal + stats.error + stats.warning + stats.info + stats.debug;
 
@@ -94,7 +76,7 @@ export function SeverityDistributionBar({
       >
         <div className="h-3 w-full rounded-full bg-issues-border" />
         <p className="mt-3 text-center text-sm text-muted-foreground">
-          No signals detected
+          {t("noSignalsDetected")}
         </p>
       </div>
     );
@@ -115,7 +97,7 @@ export function SeverityDistributionBar({
       <div className="flex h-3 w-full overflow-hidden rounded-full bg-issues-border">
         {segments.map((level) => {
           const percentage = (stats[level] / total) * 100;
-          const config = severityConfig[level];
+          const styles = severityStyles[level];
 
           return (
             <button
@@ -125,13 +107,13 @@ export function SeverityDistributionBar({
               }
               className={cn(
                 "h-full transition-all hover:opacity-80",
-                config.color,
+                styles.color,
                 activeFilter !== "all" &&
                   activeFilter !== level &&
                   "opacity-30"
               )}
               style={{ width: `${percentage}%` }}
-              title={`${config.label}: ${stats[level]} (${percentage.toFixed(1)}%)`}
+              title={`${t(level)}: ${stats[level]} (${percentage.toFixed(1)}%)`}
             />
           );
         })}
@@ -140,7 +122,7 @@ export function SeverityDistributionBar({
       {/* Labels */}
       <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
         {segments.map((level) => {
-          const config = severityConfig[level];
+          const styles = severityStyles[level];
           const isActive = activeFilter === level;
 
           return (
@@ -152,12 +134,12 @@ export function SeverityDistributionBar({
               className={cn(
                 "flex items-center gap-2 rounded-md px-2 py-1 text-sm transition-all",
                 isActive
-                  ? cn(config.bgColor, "ring-1 ring-current")
+                  ? cn(styles.bgColor, "ring-1 ring-current")
                   : "hover:bg-issues-surface"
               )}
             >
               <span
-                className={cn("h-2.5 w-2.5 rounded-full", config.color)}
+                className={cn("h-2.5 w-2.5 rounded-full", styles.color)}
               />
               <span
                 className={cn(
@@ -166,7 +148,7 @@ export function SeverityDistributionBar({
                 )}
                 style={{ fontSize: "10px" }}
               >
-                {config.label}
+                {t(level)}
               </span>
               <span
                 className={cn(

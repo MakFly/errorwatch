@@ -12,7 +12,6 @@ router.post("/transaction", apiKeyMiddleware, PerformanceController.submitTransa
 
 // Dashboard endpoints (session auth)
 router.get("/metrics", auth(), asHandler(PerformanceController.getMetrics));
-router.get("/web-vitals", auth(), asHandler(PerformanceController.getWebVitalsSummary));
 router.get("/transactions", auth(), asHandler(PerformanceController.getTransactions));
 router.get("/transactions/:id", auth(), asHandler(PerformanceController.getTransaction));
 router.get("/slowest", auth(), asHandler(PerformanceController.getSlowestTransactions));
@@ -22,5 +21,10 @@ router.get("/server-stats", auth(), asHandler(PerformanceController.getServerSta
 router.get("/top-endpoints", auth(), asHandler(PerformanceController.getTopEndpoints));
 router.get("/throughput-timeline", auth(), asHandler(PerformanceController.getThroughputTimeline));
 router.get("/duration-timeline", auth(), asHandler(PerformanceController.getDurationTimeline));
+router.get("/external-calls", auth(), asHandler(PerformanceController.getExternalCalls));
+router.get("/cache", auth(), asHandler(PerformanceController.getCache));
+router.get("/queues", auth(), asHandler(PerformanceController.getQueues));
+router.get("/endpoint-detail", auth(), asHandler(PerformanceController.getEndpointDetail));
+router.get("/web-vitals", auth(), asHandler(PerformanceController.getWebVitals));
 
 export default router;

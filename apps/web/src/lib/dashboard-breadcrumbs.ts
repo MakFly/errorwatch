@@ -75,13 +75,6 @@ function buildProjectCrumbs(
       ];
     }
 
-    if (subSection === "web-vitals") {
-      return [
-        { label: "Performance", href: `${basePath}/performance` },
-        { label: "Web Vitals" },
-      ];
-    }
-
     if (subSection === "queries") {
       return [
         { label: "Performance", href: `${basePath}/performance` },

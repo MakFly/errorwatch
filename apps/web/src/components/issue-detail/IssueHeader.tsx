@@ -13,6 +13,14 @@ import { useState, useRef } from "react";
 import type { ErrorLevel } from "@/server/api";
 import { useTranslations } from "next-intl";
 
+const levelStyles: Record<ErrorLevel, string> = {
+  fatal: "bg-signal-fatal/20 text-signal-fatal border-signal-fatal/50",
+  error: "bg-signal-error/20 text-signal-error border-signal-error/50",
+  warning: "bg-signal-warning/20 text-signal-warning border-signal-warning/50",
+  info: "bg-signal-info/20 text-signal-info border-signal-info/50",
+  debug: "bg-signal-debug/20 text-signal-debug border-signal-debug/50",
+};
+
 interface Member {
   id: string;
   name: string | null;
@@ -35,29 +43,6 @@ interface IssueHeaderProps {
   isAssigning?: boolean;
 }
 
-const levelConfig: Record<ErrorLevel, { label: string; class: string }> = {
-  fatal: {
-    label: "FATAL",
-    class: "bg-signal-fatal/20 text-signal-fatal border-signal-fatal/50",
-  },
-  error: {
-    label: "ERROR",
-    class: "bg-signal-error/20 text-signal-error border-signal-error/50",
-  },
-  warning: {
-    label: "WARNING",
-    class: "bg-signal-warning/20 text-signal-warning border-signal-warning/50",
-  },
-  info: {
-    label: "INFO",
-    class: "bg-signal-info/20 text-signal-info border-signal-info/50",
-  },
-  debug: {
-    label: "DEBUG",
-    class: "bg-signal-debug/20 text-signal-debug border-signal-debug/50",
-  },
-};
-
 // Parse exception type from message (e.g., "TypeError: Cannot read property 'x'")
 function parseExceptionType(message: string): { type: string | null; cleanMessage: string } {
   // Match common exception patterns: TypeError, Error, Exception, etc.
@@ -75,6 +60,7 @@ function parseExceptionType(message: string): { type: string | null; cleanMessag
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const tCommon = useTranslations("common");
 
   return (
     <button
@@ -84,7 +70,7 @@ function CopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 2000);
       }}
       className="p-1 rounded hover:bg-issues-surface transition-colors"
-      title="Copy location"
+      title={tCommon("copyToClipboard")}
     >
       {copied ? (
         <Check className="h-3.5 w-3.5 text-signal-info" />
@@ -200,7 +186,9 @@ export function IssueHeader({
   isAssigning,
 }: IssueHeaderProps) {
   const t = useTranslations("issueDetail.header");
-  const levelCfg = levelConfig[level];
+  const tSeverity = useTranslations("issues.severity");
+  const levelLabel = tSeverity(level);
+  const levelClass = levelStyles[level];
   const { type: exceptionType, cleanMessage } = parseExceptionType(message);
 
   return (
@@ -228,10 +216,10 @@ export function IssueHeader({
             </Link>
 
             <span className={cn(
-              "px-2 py-0.5 rounded border font-mono text-xs font-bold tracking-wider",
-              levelCfg.class
+              "px-2 py-0.5 rounded border font-mono text-xs font-bold tracking-wider uppercase",
+              levelClass
             )}>
-              {statusCode ? `${statusCode} ${levelCfg.label}` : levelCfg.label}
+              {statusCode ? `${statusCode} ${levelLabel}` : levelLabel}
             </span>
           </div>
 

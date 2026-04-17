@@ -8,11 +8,6 @@ export function usePerformanceQueries(
 ) {
   const enabled = !!projectId;
 
-  const webVitals = trpc.performance.getWebVitals.useQuery(
-    { projectId: projectId!, dateRange },
-    { enabled: enabled && !isServerSide }
-  );
-
   const transactionsData = trpc.performance.getTransactions.useQuery(
     { projectId: projectId!, page: 1, limit: 20, dateRange },
     { enabled }
@@ -44,7 +39,6 @@ export function usePerformanceQueries(
   );
 
   return {
-    webVitals,
     transactionsData,
     spanAnalysis,
     apdexData,

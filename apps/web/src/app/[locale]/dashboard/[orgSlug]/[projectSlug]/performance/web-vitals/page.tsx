@@ -1,113 +1,127 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { useCurrentProject } from "@/contexts/ProjectContext";
 import { trpc } from "@/lib/trpc/client";
-import { WebVitalsCards } from "@/components/performance";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { PerformanceDateRange, Platform } from "@/server/api/types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { cn } from "@/lib/utils";
+import type { PerformanceDateRange, WebVitalMetric, WebVitalRating } from "@/server/api/types";
 
-const SERVER_SIDE_PLATFORMS: Platform[] = [
-  "symfony",
-  "laravel",
-  "nodejs",
-  "hono",
-  "fastify",
-];
+const VITALS_ORDER = ["LCP", "CLS", "INP", "FCP", "FID", "TTFB"] as const;
+
+const DESCRIPTIONS: Record<string, string> = {
+  LCP: "Largest Contentful Paint — loading perception",
+  CLS: "Cumulative Layout Shift — visual stability",
+  INP: "Interaction to Next Paint — responsiveness",
+  FCP: "First Contentful Paint — first render",
+  FID: "First Input Delay — legacy responsiveness",
+  TTFB: "Time to First Byte — server response",
+};
+
+function formatValue(name: string, ms: number): string {
+  if (name === "CLS") {
+    // Stored as CLS * 1000
+    return (ms / 1000).toFixed(3);
+  }
+  if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`;
+  return `${Math.round(ms)}ms`;
+}
+
+function ratingCls(rating: WebVitalRating): string {
+  switch (rating) {
+    case "good":
+      return "text-status-healthy border-status-healthy/40";
+    case "needs-improvement":
+      return "text-status-warning border-status-warning/40";
+    case "poor":
+      return "text-status-critical border-status-critical/40";
+    default:
+      return "text-muted-foreground border-dashboard-border";
+  }
+}
+
+function ratingLabel(rating: WebVitalRating): string {
+  switch (rating) {
+    case "good":
+      return "Good";
+    case "needs-improvement":
+      return "Needs improvement";
+    case "poor":
+      return "Poor";
+    default:
+      return "—";
+  }
+}
 
 export default function WebVitalsPage() {
-  const t = useTranslations("performance");
-  const params = useParams();
-  const orgSlug = params.orgSlug as string;
-  const projectSlug = params.projectSlug as string;
-  const baseUrl = `/dashboard/${orgSlug}/${projectSlug}`;
-
-  const { currentProjectId, currentProject, isLoading: projectLoading } = useCurrentProject();
+  const tHeader = useTranslations("pageHeader.performanceWebVitals");
+  const { currentProjectId, isLoading: projectLoading } = useCurrentProject();
   const [dateRange, setDateRange] = useState<PerformanceDateRange>("24h");
 
-  const isServerSide =
-    !!currentProject?.platform &&
-    SERVER_SIDE_PLATFORMS.includes(currentProject.platform);
+  const { data, isLoading } = trpc.performance.getWebVitals.useQuery(
+    { projectId: currentProjectId!, dateRange },
+    { enabled: !!currentProjectId }
+  );
 
-  const { data: webVitals, isLoading: vitalsLoading } =
-    trpc.performance.getWebVitals.useQuery(
-      { projectId: currentProjectId!, dateRange },
-      { enabled: !!currentProjectId && !isServerSide }
-    );
+  if (projectLoading) return null;
 
-  if (projectLoading || (!isServerSide && vitalsLoading)) {
-    return null;
-  }
+  const metrics = data?.metrics ?? {};
+  const totalSamples = data?.totalSamples ?? 0;
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">{t("webVitals.title")}</h1>
-        {!isServerSide && (
-          <Select
-            value={dateRange}
-            onValueChange={(v) => setDateRange(v as PerformanceDateRange)}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="24h">{t("dateRange.last24h")}</SelectItem>
-              <SelectItem value="7d">{t("dateRange.last7d")}</SelectItem>
-              <SelectItem value="30d">{t("dateRange.last30d")}</SelectItem>
-              <SelectItem value="90d">{t("dateRange.last90d")}</SelectItem>
-              <SelectItem value="6m">{t("dateRange.last6m")}</SelectItem>
-              <SelectItem value="1y">{t("dateRange.lastYear")}</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+      <PageHeader
+        title={tHeader("title")}
+        description={tHeader("description")}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+      />
 
-      {isServerSide ? (
-        <Card className="border-muted bg-muted/30">
-          <CardHeader>
-            <CardTitle className="text-base">{t("webVitals.serverSideTitle")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {t("webVitals.serverSideMessage", {
-                platform: currentProject!.platform,
-              })}
-            </p>
-            <p className="text-sm font-medium">{t("webVitals.serverSideHint")}</p>
-            <ul className="space-y-1 text-sm">
-              <li>
-                <Link
-                  href={`${baseUrl}/performance/transactions`}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  {t("subPages.transactions.title")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href={`${baseUrl}/performance/queries`}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  {t("subPages.databaseQueries.title")}
-                </Link>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      ) : totalSamples === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-dashboard-border bg-dashboard-surface/30 p-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            No Web Vitals captured yet. Install the browser SDK to start reporting.
+          </p>
+        </div>
       ) : (
-        <WebVitalsCards vitals={webVitals || []} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {VITALS_ORDER.map((key) => {
+            const metric: WebVitalMetric | undefined = metrics[key];
+            return (
+              <div
+                key={key}
+                className={cn(
+                  "rounded-xl border bg-dashboard-surface/30 p-5",
+                  metric ? ratingCls(metric.rating) : "border-dashboard-border"
+                )}
+              >
+                <div className="flex items-baseline justify-between">
+                  <h3 className="font-mono text-sm font-semibold">{key}</h3>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    {metric ? ratingLabel(metric.rating) : "No data"}
+                  </span>
+                </div>
+                <p className="mt-3 font-mono text-3xl font-bold tabular-nums">
+                  {metric ? formatValue(key, metric.p75) : "—"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  p75 · {metric ? `${metric.count.toLocaleString()} samples` : "no samples"}
+                </p>
+                <p className="mt-3 text-[11px] text-muted-foreground">
+                  {DESCRIPTIONS[key]}
+                </p>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   MousePointer2,
@@ -31,14 +32,13 @@ interface BreadcrumbsTimelineProps {
   className?: string;
 }
 
-const CATEGORY_CONFIG: Record<
+const CATEGORY_STYLES: Record<
   BreadcrumbCategory,
   {
     icon: typeof MousePointer2;
     color: string;
     bg: string;
     border: string;
-    label: string;
   }
 > = {
   ui: {
@@ -46,35 +46,30 @@ const CATEGORY_CONFIG: Record<
     color: "text-blue-400",
     bg: "bg-blue-500/10",
     border: "border-blue-500/30",
-    label: "UI",
   },
   navigation: {
     icon: Navigation,
     color: "text-green-400",
     bg: "bg-green-500/10",
     border: "border-green-500/30",
-    label: "Navigation",
   },
   console: {
     icon: Terminal,
     color: "text-yellow-400",
     bg: "bg-yellow-500/10",
     border: "border-yellow-500/30",
-    label: "Console",
   },
   http: {
     icon: Globe,
     color: "text-purple-400",
     bg: "bg-purple-500/10",
     border: "border-purple-500/30",
-    label: "HTTP",
   },
   user: {
     icon: User,
     color: "text-pink-400",
     bg: "bg-pink-500/10",
     border: "border-pink-500/30",
-    label: "User",
   },
 };
 
@@ -85,24 +80,13 @@ const LEVEL_COLORS: Record<BreadcrumbLevel, string> = {
   error: "text-red-400",
 };
 
-function formatTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString("en-US", {
+function formatTime(timestamp: number, locale: string): string {
+  return new Date(timestamp).toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
   });
-}
-
-function formatRelativeTime(timestamp: number, referenceTime?: number): string {
-  const ref = referenceTime || Date.now();
-  const diff = ref - timestamp;
-  const seconds = Math.floor(diff / 1000);
-
-  if (seconds < 1) return "just now";
-  if (seconds < 60) return `${seconds}s before`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s before`;
-  return formatTime(timestamp);
 }
 
 function BreadcrumbItem({
@@ -115,9 +99,23 @@ function BreadcrumbItem({
   referenceTime?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const config = CATEGORY_CONFIG[breadcrumb.category] || CATEGORY_CONFIG.user;
-  const Icon = config.icon;
+  const t = useTranslations("breadcrumbs");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const styles = CATEGORY_STYLES[breadcrumb.category] || CATEGORY_STYLES.user;
+  const categoryLabel = t(`category.${breadcrumb.category}` as const);
+  const Icon = styles.icon;
   const hasData = breadcrumb.data && Object.keys(breadcrumb.data).length > 0;
+
+  const relativeTime = (() => {
+    const ref = referenceTime || Date.now();
+    const diff = ref - breadcrumb.timestamp;
+    const seconds = Math.floor(diff / 1000);
+    if (seconds < 1) return tCommon("justNow");
+    if (seconds < 60) return t("secondsBefore", { n: seconds });
+    if (seconds < 3600) return t("minutesBefore", { m: Math.floor(seconds / 60), s: seconds % 60 });
+    return formatTime(breadcrumb.timestamp, locale);
+  })();
 
   return (
     <div className="relative flex gap-3">
@@ -130,11 +128,11 @@ function BreadcrumbItem({
       <div
         className={cn(
           "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border",
-          config.bg,
-          config.border
+          styles.bg,
+          styles.border
         )}
       >
-        <Icon className={cn("h-4 w-4", config.color)} />
+        <Icon className={cn("h-4 w-4", styles.color)} />
       </div>
 
       {/* Content */}
@@ -156,7 +154,7 @@ function BreadcrumbItem({
                     breadcrumb.level && LEVEL_COLORS[breadcrumb.level]
                   )}
                 >
-                  {breadcrumb.message || breadcrumb.type || config.label}
+                  {breadcrumb.message || breadcrumb.type || categoryLabel}
                 </p>
 
                 {/* Meta */}
@@ -164,11 +162,11 @@ function BreadcrumbItem({
                   <span
                     className={cn(
                       "text-xs font-medium uppercase px-1.5 py-0.5 rounded",
-                      config.bg,
-                      config.color
+                      styles.bg,
+                      styles.color
                     )}
                   >
-                    {config.label}
+                    {categoryLabel}
                   </span>
                   {breadcrumb.type && breadcrumb.type !== breadcrumb.message && (
                     <span className="text-xs text-muted-foreground">
@@ -182,7 +180,7 @@ function BreadcrumbItem({
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {formatRelativeTime(breadcrumb.timestamp, referenceTime)}
+                  {relativeTime}
                 </span>
                 {hasData && (
                   expanded ? (
@@ -215,6 +213,7 @@ export function BreadcrumbsTimeline({
   className,
 }: BreadcrumbsTimelineProps) {
   const [showAll, setShowAll] = useState(false);
+  const t = useTranslations("breadcrumbs");
 
   // Parse breadcrumbs if string
   let breadcrumbs: Breadcrumb[] = [];
@@ -251,21 +250,21 @@ export function BreadcrumbsTimeline({
       <div className="flex items-center justify-between p-4 border-b border-border/50">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-medium text-sm">Breadcrumbs</h3>
+          <h3 className="font-medium text-sm">{t("title")}</h3>
           <span className="text-xs text-muted-foreground">
-            ({breadcrumbs.length} actions)
+            {t("actionsCount", { count: breadcrumbs.length })}
           </span>
         </div>
 
         {/* Category legend */}
         <div className="hidden sm:flex items-center gap-3">
-          {(Object.keys(CATEGORY_CONFIG) as BreadcrumbCategory[]).map((cat) => {
-            const config = CATEGORY_CONFIG[cat];
+          {(Object.keys(CATEGORY_STYLES) as BreadcrumbCategory[]).map((cat) => {
+            const styles = CATEGORY_STYLES[cat];
             const count = breadcrumbs.filter((b) => b.category === cat).length;
             if (count === 0) return null;
             return (
               <div key={cat} className="flex items-center gap-1">
-                <div className={cn("w-2 h-2 rounded-full", config.bg.replace("/10", ""))} />
+                <div className={cn("w-2 h-2 rounded-full", styles.bg.replace("/10", ""))} />
                 <span className="text-xs text-muted-foreground">{count}</span>
               </div>
             );
@@ -279,7 +278,7 @@ export function BreadcrumbsTimeline({
             onClick={() => setShowAll(true)}
             className="w-full mb-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border/50 rounded-lg hover:bg-secondary/30 transition-colors"
           >
-            Show {hiddenCount} earlier breadcrumbs
+            {t("showEarlier", { count: hiddenCount })}
           </button>
         )}
 

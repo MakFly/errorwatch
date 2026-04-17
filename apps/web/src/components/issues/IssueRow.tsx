@@ -14,7 +14,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import type { ErrorLevel } from "@/server/api";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 interface IssueRowProps {
   fingerprint: string;
@@ -30,52 +30,47 @@ interface IssueRowProps {
   className?: string;
 }
 
-const levelConfig: Record<
+const levelStyles: Record<
   ErrorLevel,
-  { label: string; color: string; bgColor: string; textColor: string }
+  { color: string; bgColor: string; textColor: string }
 > = {
   fatal: {
-    label: "FATAL",
     color: "bg-signal-fatal",
     bgColor: "bg-signal-fatal/10",
     textColor: "text-signal-fatal",
   },
   error: {
-    label: "ERROR",
     color: "bg-signal-error",
     bgColor: "bg-signal-error/10",
     textColor: "text-signal-error",
   },
   warning: {
-    label: "WARN",
     color: "bg-signal-warning",
     bgColor: "bg-signal-warning/10",
     textColor: "text-signal-warning",
   },
   info: {
-    label: "INFO",
     color: "bg-signal-info",
     bgColor: "bg-signal-info/10",
     textColor: "text-signal-info",
   },
   debug: {
-    label: "DEBUG",
     color: "bg-signal-debug",
     bgColor: "bg-signal-debug/10",
     textColor: "text-signal-debug",
   },
 };
 
-function formatTimeAgo(date: string | Date): string {
+function formatTimeAgo(date: string | Date, locale: string, nowLabel: string): string {
   const now = new Date();
   const then = new Date(date);
   const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
 
-  if (seconds < 60) return "now";
+  if (seconds < 60) return nowLabel;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
   if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`;
-  return then.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return then.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
 function formatFilePath(path: string): { dir: string; file: string } {
@@ -101,7 +96,11 @@ export function IssueRow({
 }: IssueRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const t = useTranslations("issues.row");
-  const config = levelConfig[level];
+  const tSeverity = useTranslations("issues.severity");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const styles = levelStyles[level];
+  const severityLabel = level === "warning" ? tSeverity("warningShort") : tSeverity(level);
   const { dir, file: fileName } = formatFilePath(file);
 
   // Calculate signal strength (0-100%)
@@ -137,17 +136,17 @@ export function IssueRow({
           <span
             className={cn(
               "h-2.5 w-2.5 shrink-0 rounded-full",
-              config.color,
+              styles.color,
               isCritical && "animate-pulse"
             )}
           />
           <span
             className={cn(
               "font-mono text-[10px] font-semibold uppercase tracking-wider",
-              config.textColor
+              styles.textColor
             )}
           >
-            {config.label}
+            {severityLabel}
           </span>
         </div>
 
@@ -166,7 +165,7 @@ export function IssueRow({
         <div className="hidden w-24 shrink-0 lg:block">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-issues-border">
             <div
-              className={cn("h-full rounded-full transition-all", config.color)}
+              className={cn("h-full rounded-full transition-all", styles.color)}
               style={{ width: `${strength}%` }}
             />
           </div>
@@ -206,7 +205,7 @@ export function IssueRow({
         <div className="hidden w-16 shrink-0 flex-col items-end sm:flex">
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            <span className="font-mono">{formatTimeAgo(lastSeen)}</span>
+            <span className="font-mono">{formatTimeAgo(lastSeen, locale, tCommon("now"))}</span>
           </div>
         </div>
 

@@ -296,11 +296,11 @@ function LoginForm() {
 
         <div
           className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-20 blur-3xl"
-          style={{ background: "hsl(262 83% 58%)" }}
+          style={{ background: "hsl(var(--brand))" }}
         />
         <div
           className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full opacity-15 blur-3xl"
-          style={{ background: "hsl(280 60% 50%)" }}
+          style={{ background: "hsl(var(--brand-secondary))" }}
         />
 
         <div className="relative text-center max-w-md animate-fade-in-up animate-delay-200">

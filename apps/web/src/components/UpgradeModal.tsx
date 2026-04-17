@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Crown, Check, Zap, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -29,8 +30,9 @@ export function UpgradeModal({
   maxItems,
   resourceType = "project",
 }: UpgradeModalProps) {
-  const resourceLabel = resourceType === "organization" ? "organization" : "project";
-  const resourceLabelPlural = resourceType === "organization" ? "organizations" : "projects";
+  const t = useTranslations("upgrade");
+  const resourceLabel = resourceType === "organization" ? t("resourceOrganization") : t("resourceProject");
+  const resourceLabelPlural = resourceType === "organization" ? t("resourceOrganizations") : t("resourceProjects");
   const createCheckout = trpc.billing.createCheckout.useMutation();
 
   const handleUpgrade = async () => {
@@ -40,10 +42,10 @@ export function UpgradeModal({
         window.location.href = result.url;
         return;
       }
-      toast.error("Checkout URL unavailable");
+      toast.error(t("checkoutUrlUnavailable"));
     } catch (e) {
       console.error("Failed to start checkout:", e);
-      toast.error("Failed to start checkout");
+      toast.error(t("checkoutError"));
     }
   };
 
@@ -53,11 +55,14 @@ export function UpgradeModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5 text-amber-400" />
-            Upgrade to Pro
+            {t("title")}
           </DialogTitle>
           <DialogDescription>
-            You&apos;ve reached the limit of {maxItems} {maxItems > 1 ? resourceLabelPlural : resourceLabel} on
-            your {currentPlan} plan.
+            {t("limitReached", {
+              maxItems,
+              resource: maxItems > 1 ? resourceLabelPlural : resourceLabel,
+              plan: currentPlan,
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -65,7 +70,7 @@ export function UpgradeModal({
           {/* Current usage */}
           <div className="mb-4 rounded-lg bg-secondary/50 p-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Current usage</span>
+              <span className="text-muted-foreground">{t("currentUsage")}</span>
               <span className="font-medium">
                 {currentCount} / {maxItems} {resourceLabelPlural}
               </span>
@@ -82,29 +87,29 @@ export function UpgradeModal({
           <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/10 p-4">
             <div className="mb-3 flex items-center gap-2">
               <Zap className="h-5 w-5 text-amber-400" />
-              <span className="font-semibold text-amber-400">Pro Plan</span>
+              <span className="font-semibold text-amber-400">{t("proPlan")}</span>
               <Sparkles className="ml-auto h-4 w-4 text-amber-400/50" />
             </div>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-400" />
-                <span>Unlimited projects & organizations</span>
+                <span>{t("featureUnlimited")}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-400" />
-                <span>100,000 events/month</span>
+                <span>{t("featureEvents")}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-400" />
-                <span>30-day data retention</span>
+                <span>{t("featureRetention")}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-400" />
-                <span>Priority support</span>
+                <span>{t("featureSupport")}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-400" />
-                <span>Advanced alerts & integrations</span>
+                <span>{t("featureAlerts")}</span>
               </li>
             </ul>
           </div>
@@ -112,11 +117,11 @@ export function UpgradeModal({
           {/* Price */}
           <div className="mt-4 text-center">
             <p className="text-2xl font-bold">
-              $29
-              <span className="text-sm font-normal text-muted-foreground">/month</span>
+              {t("price")}
+              <span className="text-sm font-normal text-muted-foreground">{t("pricePerMonth")}</span>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Billed monthly. Cancel anytime.
+              {t("billingNote")}
             </p>
           </div>
         </div>
@@ -127,7 +132,7 @@ export function UpgradeModal({
             className="flex-1"
             onClick={() => onOpenChange(false)}
           >
-            Maybe Later
+            {t("maybeLater")}
           </Button>
           <Button
             className="flex-1 gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
@@ -135,7 +140,7 @@ export function UpgradeModal({
             disabled={createCheckout.isPending}
           >
             <Crown className="h-4 w-4" />
-            {createCheckout.isPending ? "Starting..." : "Upgrade Now"}
+            {createCheckout.isPending ? t("starting") : t("upgradeNow")}
           </Button>
         </div>
       </DialogContent>

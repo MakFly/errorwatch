@@ -119,7 +119,12 @@ export interface EventJobData {
     pre_context?: string[] | null;
     post_context?: string[] | null;
   }>;
-  fingerprintVersion: 1 | 2;
+  fingerprintVersion?: 1 | 2;
+  // SDK-supplied explicit fingerprint (overrides auto-generation when set)
+  sdkFingerprint?: string | null;
+  // Distributed tracing correlation (W3C traceparent)
+  traceId?: string | null;
+  spanId?: string | null;
 }
 
 export interface ReplayJobData {

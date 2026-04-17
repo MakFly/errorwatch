@@ -80,6 +80,9 @@ export const errorEvents = pgTable("error_events", {
   frames: jsonb("frames"),                 // [{filename, function, lineno, colno, in_app, context_line, ...}]
   // Fingerprint algorithm version (1=legacy SHA-1, 2=v2 SHA-256)
   fingerprintVersion: integer("fingerprint_version").default(2),
+  // Distributed tracing correlation (W3C traceparent)
+  traceId: text("trace_id"),               // 32-hex trace identifier
+  spanId: text("span_id"),                 // 16-hex span identifier within the trace
 }, (table) => ({
   // Performance indexes for common queries
   projectCreatedIdx: index("idx_error_events_project_created").on(table.projectId, table.createdAt),
@@ -96,6 +99,8 @@ export const errorEvents = pgTable("error_events", {
   // v2: Platform and exception type filtering
   platformIdx: index("idx_error_events_platform").on(table.platform),
   exceptionTypeIdx: index("idx_error_events_exception_type").on(table.exceptionType),
+  // Trace correlation
+  traceIdx: index("idx_error_events_trace_id").on(table.traceId),
 }));
 
 // ============================================
@@ -119,11 +124,15 @@ export const applicationLogs = pgTable("application_logs", {
   url: text("url"),
   requestId: text("request_id"),
   userId: text("user_id"),
+  // Distributed tracing correlation
+  traceId: text("trace_id"),               // 32-hex trace identifier
+  spanId: text("span_id"),                 // 16-hex span identifier
   ingestedAt: timestamp("ingested_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   projectCreatedIdx: index("idx_application_logs_project_created").on(table.projectId, table.createdAt),
   projectLevelCreatedIdx: index("idx_application_logs_project_level_created").on(table.projectId, table.level, table.createdAt),
   projectChannelCreatedIdx: index("idx_application_logs_project_channel_created").on(table.projectId, table.channel, table.createdAt),
+  traceIdx: index("idx_application_logs_trace_id").on(table.traceId),
 }));
 
 // ============================================
@@ -407,6 +416,8 @@ export const spans = pgTable("spans", {
     .notNull()
     .references(() => transactions.id, { onDelete: "cascade" }),
   parentSpanId: text("parent_span_id"),
+  // Denormalized from transactions.traceId for efficient aggregation queries
+  traceId: text("trace_id"),
   op: text("op").notNull(),
   description: text("description"),
   status: text("status"),
@@ -416,6 +427,7 @@ export const spans = pgTable("spans", {
   data: jsonb("data"),
 }, (table) => ({
   transactionIdx: index("idx_spans_transaction").on(table.transactionId),
+  traceIdx: index("idx_spans_trace_id").on(table.traceId),
 }));
 
 // ============================================

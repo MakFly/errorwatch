@@ -6,20 +6,21 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCurrentProject } from "@/contexts/ProjectContext";
 import { usePerformanceQueries } from "@/hooks/usePerformanceQueries";
-import { ApdexGauge } from "@/components/performance/ApdexGauge";
-import { SpanBreakdownOverview, WebVitalsCards } from "@/components/performance";
 import { MetricRibbon } from "@/components/performance/MetricRibbon";
 import { ThroughputChart } from "@/components/performance/ThroughputChart";
 import { DurationChart } from "@/components/performance/DurationChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ArrowRight, Database, Globe, List } from "lucide-react";
+  ArrowRight,
+  Database,
+  Globe,
+  HardDrive,
+  List,
+  ListTree,
+  Activity,
+  Gauge,
+} from "lucide-react";
 import type { PerformanceDateRange } from "@/server/api/types";
 
 function formatMs(ms: number): string {
@@ -29,6 +30,7 @@ function formatMs(ms: number): string {
 
 export default function PerformancePage() {
   const t = useTranslations("performance");
+  const tHeader = useTranslations("pageHeader.performance");
   const params = useParams();
   const orgSlug = params.orgSlug as string;
   const projectSlug = params.projectSlug as string;
@@ -41,22 +43,24 @@ export default function PerformancePage() {
   const isServerSide = ["symfony", "laravel", "nodejs", "hono", "fastify"].includes(platform);
 
   const {
-    webVitals,
     transactionsData,
-    spanAnalysis,
     apdexData,
     serverStats,
     throughputTimeline,
     durationTimeline,
   } = usePerformanceQueries(currentProjectId, dateRange, isServerSide);
 
-  const isLoading = projectLoading || (!isServerSide && webVitals.isLoading);
-
-  if (isLoading) {
+  if (projectLoading) {
     return null;
   }
 
-  const subPages = [
+  const serverSubPages = [
+    {
+      title: t("subPages.requests.title"),
+      description: t("subPages.requests.description"),
+      href: `${baseUrl}/performance/requests`,
+      icon: ListTree,
+    },
     {
       title: t("subPages.transactions.title"),
       description: t("subPages.transactions.description"),
@@ -64,29 +68,57 @@ export default function PerformancePage() {
       icon: List,
     },
     {
-      title: t("subPages.webVitals.title"),
-      description: t("subPages.webVitals.description"),
-      href: `${baseUrl}/performance/web-vitals`,
+      title: t("subPages.database.title"),
+      description: t("subPages.database.description"),
+      href: `${baseUrl}/performance/database`,
+      icon: Database,
+    },
+    {
+      title: t("subPages.cache.title"),
+      description: t("subPages.cache.description"),
+      href: `${baseUrl}/performance/cache`,
+      icon: HardDrive,
+    },
+    {
+      title: t("subPages.http.title"),
+      description: t("subPages.http.description"),
+      href: `${baseUrl}/performance/http`,
       icon: Globe,
     },
     {
-      title: t("subPages.databaseQueries.title"),
-      description: t("subPages.databaseQueries.description"),
-      href: `${baseUrl}/performance/queries`,
-      icon: Database,
+      title: t("subPages.queues.title"),
+      description: t("subPages.queues.description"),
+      href: `${baseUrl}/performance/queues`,
+      icon: Activity,
     },
   ];
 
-  // Build MetricRibbon metrics from serverStats + apdexData
+  const clientSubPages = [
+    {
+      title: t("subPages.webVitals.title"),
+      description: t("subPages.webVitals.description"),
+      href: `${baseUrl}/performance/web-vitals`,
+      icon: Gauge,
+    },
+    {
+      title: t("subPages.transactions.title"),
+      description: t("subPages.transactions.description"),
+      href: `${baseUrl}/performance/transactions`,
+      icon: List,
+    },
+  ];
+
+  const subPages = isServerSide ? serverSubPages : clientSubPages;
+
   const ribbonMetrics = serverStats.data
     ? [
         {
-          label: "Throughput", // TODO: i18n
-          value: `${serverStats.data.throughput.toFixed(1)}/min`,
+          label: t("throughputLabel"),
+          value: `${serverStats.data.throughput.toFixed(1)}`,
           sub: t("throughputUnit"),
         },
         {
-          label: "Avg Latency", // TODO: i18n
+          label: "p95 latency",
           value: formatMs(serverStats.data.avgDuration),
         },
         {
@@ -97,16 +129,15 @@ export default function PerformancePage() {
           alert: serverStats.data.errorRate > 5,
         },
         {
-          label: "Apdex", // TODO: i18n
+          label: "Apdex",
           value: apdexData.data ? apdexData.data.score.toFixed(2) : "—",
           sub: apdexData.data
             ? `${apdexData.data.satisfied} satisfied`
             : undefined,
         },
         {
-          label: "Total", // TODO: i18n
+          label: "Transactions",
           value: serverStats.data.totalTransactions.toLocaleString(),
-          sub: t("transactions.title"),
         },
       ]
     : [];
@@ -116,94 +147,44 @@ export default function PerformancePage() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">{t("overview")}</h1>
-        <Select
-          value={dateRange}
-          onValueChange={(v) => setDateRange(v as PerformanceDateRange)}
-        >
-          <SelectTrigger className="w-[120px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="24h">{t("dateRange.last24h")}</SelectItem>
-            <SelectItem value="7d">{t("dateRange.last7d")}</SelectItem>
-            <SelectItem value="30d">{t("dateRange.last30d")}</SelectItem>
-            <SelectItem value="90d">{t("dateRange.last90d")}</SelectItem>
-            <SelectItem value="6m">{t("dateRange.last6m")}</SelectItem>
-            <SelectItem value="1y">{t("dateRange.lastYear")}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <PageHeader
+        title={tHeader("title")}
+        description={tHeader("description")}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+      />
 
-      {/* Server-side view */}
       {isServerSide && (
         <>
-          {/* Empty state */}
           {!hasTransactions && !serverStats.isLoading && (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
               <p className="text-sm text-muted-foreground">
-                {/* TODO: i18n */}
                 No transactions recorded yet. Install an SDK to start tracking performance.
               </p>
             </div>
           )}
 
-          {/* MetricRibbon */}
           <MetricRibbon
             metrics={ribbonMetrics}
             isLoading={serverStats.isLoading || apdexData.isLoading}
           />
-
-          {/* Charts row */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ThroughputChart
-              data={throughputTimeline.data ?? []}
-              isLoading={throughputTimeline.isLoading}
-              dateRange={dateRange}
-            />
-            <DurationChart
-              data={durationTimeline.data ?? []}
-              isLoading={durationTimeline.isLoading}
-              dateRange={dateRange}
-            />
-          </div>
-
-          {/* Apdex + SpanBreakdown */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ApdexGauge data={apdexData.data} isLoading={apdexData.isLoading} />
-            <SpanBreakdownOverview
-              data={spanAnalysis.data?.byOp ?? []}
-              isLoading={spanAnalysis.isLoading}
-            />
-          </div>
         </>
       )}
 
-      {/* Client-side (frontend) view */}
-      {!isServerSide && (
-        <>
-          <WebVitalsCards vitals={webVitals.data || []} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ThroughputChart
+          data={throughputTimeline.data ?? []}
+          isLoading={throughputTimeline.isLoading}
+          dateRange={dateRange}
+        />
+        <DurationChart
+          data={durationTimeline.data ?? []}
+          isLoading={durationTimeline.isLoading}
+          dateRange={dateRange}
+        />
+      </div>
 
-          {/* Charts row — always show for frontend too */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ThroughputChart
-              data={throughputTimeline.data ?? []}
-              isLoading={throughputTimeline.isLoading}
-              dateRange={dateRange}
-            />
-            <DurationChart
-              data={durationTimeline.data ?? []}
-              isLoading={durationTimeline.isLoading}
-              dateRange={dateRange}
-            />
-          </div>
-        </>
-      )}
-
-      {/* Quick navigation to sub-pages */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {subPages.map((page) => (
           <Link key={page.href} href={page.href}>
             <Card className="h-full transition-colors hover:bg-muted/50">

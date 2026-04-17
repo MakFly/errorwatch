@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { formatDistanceToNow, formatDuration, intervalToDuration } from "date-fns";
+import { fr as frLocale, enUS as enLocale } from "date-fns/locale";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -34,6 +35,9 @@ import { cn } from "@/lib/utils";
 
 import type { ErrorLevel } from "@/server/api";
 
+type Translator = (key: string) => string;
+type DeviceKey = "desktop" | "mobile" | "tablet" | "unknown";
+
 export interface ReplaySessionRow {
   id: string;
   startedAt: Date;
@@ -51,6 +55,8 @@ export interface ReplaySessionRow {
 interface ReplaysDataTableColumnsProps {
   orgSlug: string;
   projectSlug: string;
+  t: Translator;
+  locale: string;
 }
 
 function formatSessionDuration(durationMs: number | null): string {
@@ -95,10 +101,18 @@ function getSeverityColor(level: ErrorLevel | null): string {
   }
 }
 
+function deviceKey(deviceType: string | null): DeviceKey {
+  if (deviceType === "desktop" || deviceType === "mobile" || deviceType === "tablet") return deviceType;
+  return "unknown";
+}
+
 export function createReplaysColumns({
   orgSlug,
   projectSlug,
+  t,
+  locale,
 }: ReplaysDataTableColumnsProps): ColumnDef<ReplaySessionRow, any>[] {
+  const dateFnsLocale = locale.startsWith("fr") ? frLocale : enLocale;
   return [
     {
       id: "play",
@@ -123,7 +137,7 @@ export function createReplaysColumns({
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="h-8 px-0 text-left"
         >
-          Session
+          {t("columns.session")}
           {column.getIsSorted() === "asc" && (
             <ChevronUpIcon className="ml-2 size-4" />
           )}
@@ -137,13 +151,13 @@ export function createReplaysColumns({
         return (
           <div className="flex flex-col">
             <span className="text-sm font-medium">
-              {new Date(startedAt).toLocaleTimeString([], {
+              {new Date(startedAt).toLocaleTimeString(locale, {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
             </span>
             <span className="text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(startedAt), { addSuffix: true })}
+              {formatDistanceToNow(new Date(startedAt), { addSuffix: true, locale: dateFnsLocale })}
             </span>
           </div>
         );
@@ -157,7 +171,7 @@ export function createReplaysColumns({
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="h-8 px-0"
         >
-          Duration
+          {t("columns.duration")}
           {column.getIsSorted() === "asc" && (
             <ChevronUpIcon className="ml-2 size-4" />
           )}
@@ -177,7 +191,7 @@ export function createReplaysColumns({
     },
     {
       accessorKey: "url",
-      header: "Page",
+      header: t("columns.page"),
       cell: ({ row }) => {
         const url = row.original.url;
         if (!url) return <span className="text-muted-foreground">-</span>;
@@ -214,7 +228,7 @@ export function createReplaysColumns({
     },
     {
       accessorKey: "deviceType",
-      header: "Device",
+      header: t("columns.device"),
       cell: ({ row }) => {
         const deviceType = row.original.deviceType;
         const Icon = getDeviceIcon(deviceType);
@@ -223,7 +237,7 @@ export function createReplaysColumns({
           <div className="flex items-center gap-1.5">
             <Icon className="h-4 w-4 text-muted-foreground" />
             <span className="hidden text-xs capitalize text-muted-foreground sm:inline">
-              {deviceType || "Unknown"}
+              {t(`device.${deviceKey(deviceType)}`)}
             </span>
           </div>
         );
@@ -232,7 +246,7 @@ export function createReplaysColumns({
     },
     {
       accessorKey: "environment",
-      header: () => <div className="hidden md:block">Environment</div>,
+      header: () => <div className="hidden md:block">{t("columns.environment")}</div>,
       cell: ({ row }) => {
         const { browser, os } = row.original;
 
@@ -262,7 +276,7 @@ export function createReplaysColumns({
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="h-8 px-0"
           >
-            Errors
+            {t("columns.errors")}
             {column.getIsSorted() === "asc" && (
               <ChevronUpIcon className="ml-2 size-4" />
             )}
@@ -310,14 +324,14 @@ export function createReplaysColumns({
               size="icon"
             >
               <ChevronDownIcon />
-              <span className="sr-only">Open menu</span>
+              <span className="sr-only">{t("actions.openMenu")}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem asChild>
               <Link href={`/dashboard/${orgSlug}/${projectSlug}/replays/${row.original.id}`}>
                 <PlayCircleIcon className="mr-2 size-4" />
-                Watch Replay
+                {t("actions.watchReplay")}
               </Link>
             </DropdownMenuItem>
             {row.original.errorFingerprints.length > 0 && (
@@ -326,7 +340,7 @@ export function createReplaysColumns({
                   href={`/dashboard/${orgSlug}/${projectSlug}/issues/${row.original.errorFingerprints[0]}`}
                 >
                   <AlertTriangle className="mr-2 size-4" />
-                  View Issue
+                  {t("actions.viewIssue")}
                 </Link>
               </DropdownMenuItem>
             )}
@@ -335,7 +349,7 @@ export function createReplaysColumns({
                 onClick={() => window.open(row.original.url!, "_blank")}
               >
                 <ExternalLink className="mr-2 size-4" />
-                Open Page
+                {t("actions.openPage")}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

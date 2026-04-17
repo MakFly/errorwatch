@@ -1,16 +1,5 @@
 export type PerformanceDateRange = "24h" | "7d" | "30d" | "90d" | "6m" | "1y";
 
-export type WebVitalSummary = {
-  name: string;
-  avg: number;
-  p50: number;
-  p75: number;
-  p95: number;
-  count: number;
-  status: "good" | "needs-improvement" | "poor";
-  threshold: { good: number; needsImprovement: number } | null;
-};
-
 export type Transaction = {
   id: string;
   projectId: string;
@@ -137,4 +126,111 @@ export interface DurationBucket {
   p50: number;
   p75: number;
   p95: number;
+}
+
+// External HTTP calls aggregated by host+method
+export interface ExternalCallSummary {
+  host: string;
+  method: string | null;
+  count: number;
+  avgDuration: number;
+  p95Duration: number;
+  maxDuration: number;
+  errorCount: number;
+  errorRate: number;        // percent, 2 decimals
+  percentOfTotal: number;   // percent of total call count
+}
+
+// Cache operations aggregated by op
+export interface CacheOpSummary {
+  op: string;
+  count: number;
+  hits: number;
+  misses: number;
+  hitRate: number;          // percent, 2 decimals
+  avgDuration: number;
+  p95Duration: number;
+}
+
+export interface CacheSummary {
+  entries: CacheOpSummary[];
+  summary: {
+    totalCount: number;
+    totalHits: number;
+    totalMisses: number;
+    hitRate: number;
+  };
+}
+
+// Queue / message-bus operations aggregated by messageClass + op
+export interface QueueOpSummary {
+  op: string;
+  messageClass: string;
+  transport: string | null;
+  count: number;
+  avgDuration: number;
+  p95Duration: number;
+  maxDuration: number;
+  errorCount: number;
+  errorRate: number;
+}
+
+export interface QueueSummary {
+  entries: QueueOpSummary[];
+  summary: {
+    totalCount: number;
+    totalErrors: number;
+    errorRate: number;
+    avgDuration: number;
+  };
+}
+
+// Endpoint detail
+export interface EndpointDetailSummary {
+  name: string;
+  op: string;
+  count: number;
+  avgDuration: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  maxDuration: number;
+  errorCount: number;
+  errorRate: number;
+}
+
+export interface EndpointTopQuery {
+  description: string;
+  count: number;
+  totalDuration: number;
+  avgDuration: number;
+}
+
+export interface EndpointRecentTransaction {
+  id: string;
+  duration: number;
+  status: string | null;
+  startTimestamp: Date;
+}
+
+export interface EndpointDetail {
+  endpoint: EndpointDetailSummary | null;
+  topQueries: EndpointTopQuery[];
+  recentTransactions: EndpointRecentTransaction[];
+}
+
+// Core Web Vitals
+export type WebVitalRating = "good" | "needs-improvement" | "poor" | "unknown";
+
+export interface WebVitalMetric {
+  name: string;
+  count: number;
+  p75: number;
+  p95: number;
+  rating: WebVitalRating;
+}
+
+export interface WebVitalsSummary {
+  metrics: Record<string, WebVitalMetric>;
+  totalSamples: number;
 }

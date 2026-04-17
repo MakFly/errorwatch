@@ -45,10 +45,20 @@ dist/
 # Test coverage
 coverage/
 
-# SDK packages (separate repos via subtree split)
+# SDK packages (separate repos via subtree split or worktrees)
 # See: github.com/MakFly/errorwatch-sdk-symfony
 # See: github.com/MakFly/errorwatch-sdk-laravel
 packages/
+
+# Shared bare clones backing the worktree layout (see scripts/sdk-worktree.sh)
+.git-bare/
+
+# Example projects — build artefacts only (the source IS tracked)
+examples/*/vendor/
+examples/*/var/cache/
+examples/*/var/log/
+examples/*/composer.lock
+!examples/laravel-api/composer.lock
 
 # instant-grep index
 .ig/

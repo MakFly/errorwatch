@@ -58,14 +58,14 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
   // Dynamic Zod schema with org name validation
   const projectSchema = useMemo(() => z.object({
     name: z.string()
-      .min(1, "Project name is required")
-      .max(100, "Project name is too long")
+      .min(1, t("validationRequired"))
+      .max(100, t("validationTooLong"))
       .refine(
         (name) => !selectedOrgName || name.toLowerCase() !== selectedOrgName.toLowerCase(),
-        "Project name cannot be the same as organization name"
+        t("validationSameAsOrg")
       ),
     environment: z.enum(["production", "staging", "development"]),
-  }), [selectedOrgName]);
+  }), [selectedOrgName, t]);
 
   type ProjectFormData = z.infer<typeof projectSchema>;
 
@@ -101,7 +101,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
     },
     onError: (err) => {
       setError(err.message);
-      toast.error(err.message?.slice(0, 100) || "Error");
+      toast.error(err.message?.slice(0, 100) || tCommon("error"));
     },
   });
 
@@ -130,10 +130,10 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderKanban className="h-5 w-5 text-primary" />
-            Create New Project
+            {t("createTitle")}
           </DialogTitle>
           <DialogDescription>
-            Add a new project to monitor errors
+            {t("createDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -143,11 +143,11 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
-                Organization
+                {t("organizationLabel")}
               </Label>
               <Select value={organizationId} onValueChange={setOrganizationId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select organization" />
+                  <SelectValue placeholder={t("organizationPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {organizations.map((org) => (
@@ -164,11 +164,11 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
           <div className="space-y-2">
             <Label htmlFor="projectName" className="flex items-center gap-2">
               <FolderKanban className="h-4 w-4 text-muted-foreground" />
-              Project Name
+              {t("nameLabel")}
             </Label>
             <Input
               id="projectName"
-              placeholder="My App"
+              placeholder={t("namePlaceholder")}
               {...form.register("name")}
               className={form.formState.errors.name ? "border-destructive" : ""}
               autoFocus
@@ -184,7 +184,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Rocket className="h-4 w-4 text-muted-foreground" />
-              Environment
+              {t("environmentLabel")}
             </Label>
             <Select
               value={form.watch("environment")}
@@ -194,9 +194,9 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="production">Production</SelectItem>
-                <SelectItem value="staging">Staging</SelectItem>
-                <SelectItem value="development">Development</SelectItem>
+                <SelectItem value="production">{t("environmentProduction")}</SelectItem>
+                <SelectItem value="staging">{t("environmentStaging")}</SelectItem>
+                <SelectItem value="development">{t("environmentDevelopment")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -205,7 +205,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-muted-foreground" />
-              Platform / Framework
+              {t("platformLabel")}
             </Label>
             <PlatformSelector value={platform} onChange={setPlatform} />
           </div>
@@ -218,16 +218,16 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tCommon("cancel")}
             </Button>
             <Button type="submit" disabled={createMutation.isPending || !form.watch("name")?.trim() || !platform}>
               {createMutation.isPending ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  {tCommon("creating")}
                 </>
               ) : (
-                "Create Project"
+                t("createSubmit")
               )}
             </Button>
           </div>

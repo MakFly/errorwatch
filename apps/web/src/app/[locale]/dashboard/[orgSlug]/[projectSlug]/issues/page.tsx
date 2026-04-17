@@ -5,7 +5,6 @@ import { useCurrentProject } from "@/contexts/ProjectContext";
 import { useCurrentOrganization } from "@/contexts/OrganizationContext";
 import { useGroups, useMergeGroups } from "@/lib/trpc/hooks";
 import {
-  IssuesHeader,
   FiltersRow,
   ErrorState,
 } from "@/components/issues";
@@ -16,7 +15,9 @@ import type { RowSelectionState } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/useDebounce";
 import { normalizeGroups } from "@/lib/utils/normalize-groups";
-import { Download } from "lucide-react";
+import { Download, Radio } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +40,8 @@ export default function IssuesPage() {
   const { currentProjectId, currentProjectSlug } = useCurrentProject();
   const { currentOrgSlug } = useCurrentOrganization();
   const t = useTranslations("issues.page");
+  const tHeader = useTranslations("pageHeader.issues");
+  const tIssuesHeader = useTranslations("issues.header");
 
   const [filters, setFilters] = useState<FiltersState>({
     env: "all",
@@ -122,18 +125,36 @@ export default function IssuesPage() {
     [currentOrgSlug, currentProjectSlug]
   );
 
+  const signalsBadge = (
+    <div className="flex items-center gap-2 rounded-lg border border-pulse-primary/30 bg-pulse-primary/10 px-3 py-2">
+      <Radio className="h-4 w-4 text-pulse-primary" />
+      {isLoading ? (
+        <Skeleton className="h-4 w-8" />
+      ) : (
+        <span className="font-mono text-sm font-semibold text-pulse-primary">
+          {totalSignals.toLocaleString()}
+        </span>
+      )}
+      <span className="text-xs text-pulse-muted">{tIssuesHeader("signals")}</span>
+    </div>
+  );
+
   if (error) {
     return (
-      <div className="flex flex-1 flex-col gap-4 bg-issues-bg p-4 md:gap-6 md:p-6">
-        <IssuesHeader totalSignals={0} />
+      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
+        <PageHeader title={tHeader("title")} description={tHeader("description")}>
+          {signalsBadge}
+        </PageHeader>
         <ErrorState message={error.message} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 bg-issues-bg p-4 md:gap-6 md:p-6">
-      <IssuesHeader totalSignals={totalSignals} isLoading={isLoading} />
+    <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
+      <PageHeader title={tHeader("title")} description={tHeader("description")}>
+        {signalsBadge}
+      </PageHeader>
 
       <div className="flex items-end justify-between gap-4">
         <FiltersRow
@@ -194,7 +215,7 @@ export default function IssuesPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Page {page} of {totalPages} ({totalSignals} total)
+            {t("pageOf", { page, totalPages, total: totalSignals })}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -203,7 +224,7 @@ export default function IssuesPage() {
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1 || isLoading}
             >
-              Previous
+              {t("previous")}
             </Button>
             <Button
               variant="outline"
@@ -211,7 +232,7 @@ export default function IssuesPage() {
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages || isLoading}
             >
-              Next
+              {t("next")}
             </Button>
           </div>
         </div>

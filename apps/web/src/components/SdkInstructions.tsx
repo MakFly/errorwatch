@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Copy, Terminal, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SdkInstructions as SdkInstructionsType } from "@/server/api";
@@ -23,6 +24,7 @@ function CodeBlock({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   const [copied, setCopied] = useState(false);
+  const t = useTranslations("sdkInstructions");
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
@@ -52,12 +54,12 @@ function CodeBlock({
           {copied ? (
             <>
               <Check className="h-3.5 w-3.5" />
-              Copied!
+              {t("copied")}
             </>
           ) : (
             <>
               <Copy className="h-3.5 w-3.5" />
-              Copy
+              {t("copy")}
             </>
           )}
         </button>
@@ -70,6 +72,7 @@ function CodeBlock({
 }
 
 export function SdkInstructions({ instructions, apiKey, className }: SdkInstructionsProps) {
+  const t = useTranslations("sdkInstructions");
   return (
     <div className={cn("space-y-6", className)}>
       {/* Header */}
@@ -87,9 +90,9 @@ export function SdkInstructions({ instructions, apiKey, className }: SdkInstruct
           {instructions.icon === "metrics" && "📊"}
         </div>
         <div>
-          <h3 className="font-semibold text-foreground">Setup {instructions.name}</h3>
+          <h3 className="font-semibold text-foreground">{t("setupTitle", { name: instructions.name })}</h3>
           <p className="text-sm text-muted-foreground">
-            Install the SDK and configure your project
+            {t("subtitle")}
           </p>
         </div>
       </div>
@@ -100,12 +103,12 @@ export function SdkInstructions({ instructions, apiKey, className }: SdkInstruct
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
             1
           </span>
-          <span className="text-sm font-medium">Install the package</span>
+          <span className="text-sm font-medium">{t("installStep")}</span>
         </div>
         <CodeBlock
           code={instructions.installCommand}
           language={instructions.category === "php" ? "bash" : "bash"}
-          title="Terminal"
+          title={t("terminal")}
           icon={Terminal}
         />
       </div>
@@ -116,12 +119,12 @@ export function SdkInstructions({ instructions, apiKey, className }: SdkInstruct
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
             2
           </span>
-          <span className="text-sm font-medium">Configure your app</span>
+          <span className="text-sm font-medium">{t("configureStep")}</span>
         </div>
         <CodeBlock
           code={instructions.configSnippet}
           language={instructions.icon === "laravel" ? "env" : instructions.category === "php" ? "yaml" : "typescript"}
-          title="Configuration"
+          title={t("configuration")}
           icon={FileCode}
         />
       </div>
@@ -133,9 +136,9 @@ export function SdkInstructions({ instructions, apiKey, className }: SdkInstruct
             <span className="text-amber-500">🔑</span>
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-amber-900 dark:text-amber-200">Your API Key</h4>
+            <h4 className="text-sm font-medium text-amber-900 dark:text-amber-200">{t("apiKeyTitle")}</h4>
             <p className="mt-0.5 mb-2 text-xs text-amber-800/80 dark:text-amber-300/70">
-              Keep this key secure. It&apos;s used to authenticate your error reports.
+              {t("apiKeyNote")}
             </p>
             <code className="block break-all rounded bg-muted px-3 py-2 font-mono text-xs text-foreground">
               {apiKey}

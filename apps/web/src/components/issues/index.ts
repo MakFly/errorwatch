@@ -1,5 +1,4 @@
 export { IssueRow } from "./IssueRow";
-export { IssuesHeader } from "./IssuesHeader";
 export { FiltersRow } from "./FiltersRow";
 export { IssuesTable, EmptyState, ErrorState } from "./IssuesTable";
 export { SignalProfile } from "./SignalProfile";
@@ -7,6 +6,7 @@ export { SignalTrace } from "./SignalTrace";
 export { FrequencyChart } from "./FrequencyChart";
 export { EventLog } from "./EventLog";
 export { EventNavigator } from "./EventNavigator";
+export { EventListSidebar } from "./EventListSidebar";
 export { createIssuesColumns, type IssueGroup } from "./issues-data-table-columns";
 export { TagsPanel } from "./TagsPanel";
 export { ReleasesPanel } from "./ReleasesPanel";

@@ -1,6 +1,5 @@
 import { fetchAPI } from './client';
 import type {
-  WebVitalSummary,
   TransactionsResponse,
   TransactionWithSpans,
   SlowestTransaction,
@@ -10,18 +9,13 @@ import type {
   EndpointImpact,
   ThroughputBucket,
   DurationBucket,
+  ExternalCallSummary,
+  CacheSummary,
+  QueueSummary,
+  EndpointDetail,
+  WebVitalsSummary,
   PerformanceDateRange,
 } from './types';
-
-export const getWebVitals = async (
-  projectId: string,
-  dateRange?: PerformanceDateRange
-): Promise<WebVitalSummary[]> => {
-  const params = new URLSearchParams();
-  params.set("projectId", projectId);
-  if (dateRange) params.set("dateRange", dateRange);
-  return fetchAPI<WebVitalSummary[]>(`/performance/web-vitals?${params.toString()}`);
-};
 
 export const getTransactions = async (
   projectId: string,
@@ -114,4 +108,56 @@ export const getDurationTimeline = async (
   if (dateRange) params.set("dateRange", dateRange);
   if (name) params.set("name", name);
   return fetchAPI<DurationBucket[]>(`/performance/duration-timeline?${params.toString()}`);
+};
+
+export const getExternalCalls = async (
+  projectId: string,
+  dateRange?: PerformanceDateRange
+): Promise<ExternalCallSummary[]> => {
+  const params = new URLSearchParams();
+  params.set("projectId", projectId);
+  if (dateRange) params.set("dateRange", dateRange);
+  return fetchAPI<ExternalCallSummary[]>(`/performance/external-calls?${params.toString()}`);
+};
+
+export const getCache = async (
+  projectId: string,
+  dateRange?: PerformanceDateRange
+): Promise<CacheSummary> => {
+  const params = new URLSearchParams();
+  params.set("projectId", projectId);
+  if (dateRange) params.set("dateRange", dateRange);
+  return fetchAPI<CacheSummary>(`/performance/cache?${params.toString()}`);
+};
+
+export const getQueues = async (
+  projectId: string,
+  dateRange?: PerformanceDateRange
+): Promise<QueueSummary> => {
+  const params = new URLSearchParams();
+  params.set("projectId", projectId);
+  if (dateRange) params.set("dateRange", dateRange);
+  return fetchAPI<QueueSummary>(`/performance/queues?${params.toString()}`);
+};
+
+export const getEndpointDetail = async (
+  projectId: string,
+  name: string,
+  dateRange?: PerformanceDateRange
+): Promise<EndpointDetail> => {
+  const params = new URLSearchParams();
+  params.set("projectId", projectId);
+  params.set("name", name);
+  if (dateRange) params.set("dateRange", dateRange);
+  return fetchAPI<EndpointDetail>(`/performance/endpoint-detail?${params.toString()}`);
+};
+
+export const getWebVitals = async (
+  projectId: string,
+  dateRange?: PerformanceDateRange
+): Promise<WebVitalsSummary> => {
+  const params = new URLSearchParams();
+  params.set("projectId", projectId);
+  if (dateRange) params.set("dateRange", dateRange);
+  return fetchAPI<WebVitalsSummary>(`/performance/web-vitals?${params.toString()}`);
 };

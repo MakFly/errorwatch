@@ -77,6 +77,9 @@ export type ErrorEvent = {
     post_context?: string[] | null;
   }>;
   fingerprintVersion?: number;
+  // Distributed tracing correlation (W3C traceparent)
+  traceId?: string | null;
+  spanId?: string | null;
 };
 
 export type ReleaseDistribution = {

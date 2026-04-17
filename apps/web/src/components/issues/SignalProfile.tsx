@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -45,36 +46,31 @@ interface SignalProfileProps {
   isAssigning?: boolean;
 }
 
-const levelConfig: Record<
+const levelStyles: Record<
   ErrorLevel,
-  { label: string; color: string; bgColor: string; glowColor: string }
+  { color: string; bgColor: string; glowColor: string }
 > = {
   fatal: {
-    label: "FATAL",
     color: "text-signal-fatal",
     bgColor: "bg-signal-fatal/10",
     glowColor: "shadow-signal-fatal/30",
   },
   error: {
-    label: "ERROR",
     color: "text-signal-error",
     bgColor: "bg-signal-error/10",
     glowColor: "shadow-signal-error/30",
   },
   warning: {
-    label: "WARNING",
     color: "text-signal-warning",
     bgColor: "bg-signal-warning/10",
     glowColor: "shadow-signal-warning/30",
   },
   info: {
-    label: "INFO",
     color: "text-signal-info",
     bgColor: "bg-signal-info/10",
     glowColor: "shadow-signal-info/30",
   },
   debug: {
-    label: "DEBUG",
     color: "text-signal-debug",
     bgColor: "bg-signal-debug/10",
     glowColor: "shadow-signal-debug/30",
@@ -83,6 +79,7 @@ const levelConfig: Record<
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const tCommon = useTranslations("common");
 
   const copy = () => {
     navigator.clipboard.writeText(text);
@@ -94,7 +91,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       onClick={copy}
       className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-issues-surface hover:text-foreground"
-      title="Copy to clipboard"
+      title={tCommon("copyToClipboard")}
     >
       {copied ? (
         <Check className="h-4 w-4 text-signal-info" />
@@ -105,24 +102,24 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function formatDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString("en-US", {
+function formatDate(date: string | Date, locale: string): string {
+  return new Date(date).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-function formatTimeAgo(date: string | Date): string {
+function formatTimeAgo(date: string | Date, locale: string, justNow: string): string {
   const now = new Date();
   const then = new Date(date);
   const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
 
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  return formatDate(date);
+  if (seconds < 60) return justNow;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`;
+  return formatDate(date, locale);
 }
 
 export function SignalProfile({
@@ -143,7 +140,11 @@ export function SignalProfile({
   onAssign,
   isAssigning,
 }: SignalProfileProps) {
-  const config = levelConfig[level];
+  const t = useTranslations("issues");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const styles = levelStyles[level];
+  const label = t(`severity.${level}` as const);
   const isCritical = level === "fatal" || level === "error";
 
   // Find current assignee from members list
@@ -181,7 +182,7 @@ export function SignalProfile({
             <span
               className={cn(
                 "relative h-3 w-3 rounded-full",
-                config.bgColor,
+                styles.bgColor,
                 isCritical && "animate-pulse"
               )}
             >
@@ -199,10 +200,10 @@ export function SignalProfile({
             <span
               className={cn(
                 "font-mono text-xs font-bold uppercase tracking-wider",
-                config.color
+                styles.color
               )}
             >
-              {statusCode ? `${statusCode} ${config.label}` : config.label}
+              {statusCode ? `${statusCode} ${label}` : label}
             </span>
           </div>
         </div>
@@ -234,7 +235,7 @@ export function SignalProfile({
               </span>
             </div>
             <p className="text-sm font-medium text-foreground">
-              {formatDate(firstSeen)}
+              {formatDate(firstSeen, locale)}
             </p>
           </div>
 
@@ -246,7 +247,7 @@ export function SignalProfile({
               </span>
             </div>
             <p className="text-sm font-medium text-foreground">
-              {formatTimeAgo(lastSeen)}
+              {formatTimeAgo(lastSeen, locale, tCommon("justNow"))}
             </p>
           </div>
 

@@ -51,6 +51,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import type { CronCheckinStatus, CronMonitorStatus } from "@/server/api/types";
 
 function formatSchedule(schedule: string | null): string {
@@ -118,6 +119,7 @@ interface CreateMonitorFormData {
 
 export default function CronsPage() {
   const t = useTranslations("crons");
+  const tHeader = useTranslations("pageHeader.crons");
   const params = useParams();
   const orgSlug = params.orgSlug as string;
   const projectSlug = params.projectSlug as string;
@@ -177,12 +179,7 @@ export default function CronsPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-
+      <PageHeader title={tHeader("title")} description={tHeader("description")}>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2">
@@ -265,7 +262,7 @@ export default function CronsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </PageHeader>
 
       {/* Onboarding Guide - shown when no monitors exist */}
       {!isLoading && !hasMonitors && <CronOnboardingGuide t={t} onCreateClick={() => setCreateOpen(true)} />}

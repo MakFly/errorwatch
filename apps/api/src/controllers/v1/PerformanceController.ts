@@ -212,7 +212,8 @@ export const submitTransaction = async (c: Context<AppEnv>) => {
     const now = new Date();
     const duration = Math.round(transaction.endTimestamp - transaction.startTimestamp);
 
-    // Insert transaction
+    // Insert transaction (pass objects directly — drizzle jsonb handles serialization;
+    // pre-stringifying would store the JSON as a JSONB text value, breaking `data->>'key'`)
     await db.insert(transactions).values({
       id: transaction.id,
       projectId,
@@ -224,8 +225,8 @@ export const submitTransaction = async (c: Context<AppEnv>) => {
       duration,
       startTimestamp: new Date(transaction.startTimestamp),
       endTimestamp: new Date(transaction.endTimestamp),
-      tags: transaction.tags ? JSON.stringify(transaction.tags) : null,
-      data: transaction.data ? JSON.stringify(normalizeTransactionData(transaction.data)) : null,
+      tags: transaction.tags ?? null,
+      data: transaction.data ? normalizeTransactionData(transaction.data) : null,
       env: input.env,
       createdAt: now,
     });
@@ -238,13 +239,14 @@ export const submitTransaction = async (c: Context<AppEnv>) => {
           id: span.id,
           transactionId: transaction.id,
           parentSpanId: span.parentSpanId || null,
+          traceId: transaction.traceId || null,
           op: span.op,
           description: span.description || null,
           status: span.status || null,
           duration: spanDuration,
           startTimestamp: new Date(span.startTimestamp),
           endTimestamp: new Date(span.endTimestamp),
-          data: span.data ? JSON.stringify(span.data) : null,
+          data: span.data ?? null,
         });
       }
     }
@@ -338,126 +340,6 @@ export const getMetrics = async (c: AuthContext) => {
     ;
 
   return c.json(metrics);
-};
-
-/**
- * Get Web Vitals summary
- */
-export const getWebVitalsSummary = async (c: AuthContext) => {
-  const userId = c.get("userId");
-  const projectId = c.req.query("projectId");
-  const dateRange = c.req.query("dateRange") as ExtendedDateRange | undefined;
-
-  if (!projectId) {
-    return c.json({ error: "projectId required", code: "MISSING_PROJECT_ID" }, 400);
-  }
-
-  const hasAccess = await verifyProjectAccess(projectId, userId);
-  if (!hasAccess) {
-    return c.json({ error: "Access denied", code: "FORBIDDEN" }, 403);
-  }
-
-  const startDate = getStartDate(dateRange);
-  const source = getAggregationSource(dateRange);
-
-  let vitals: { name: string; avg: number; p50: number; p75: number; p95: number; count: number }[];
-
-  if (source === "raw") {
-    // Real-time: query raw performance_metrics
-    vitals = await db
-      .select({
-        name: performanceMetrics.name,
-        avg: sql<number>`avg(${performanceMetrics.value})`,
-        p50: sql<number>`avg(${performanceMetrics.value})`,
-        p75: sql<number>`avg(${performanceMetrics.value}) * 1.1`,
-        p95: sql<number>`max(${performanceMetrics.value})`,
-        count: sql<number>`count(*)`,
-      })
-      .from(performanceMetrics)
-      .where(
-        and(
-          eq(performanceMetrics.projectId, projectId),
-          eq(performanceMetrics.type, "web_vitals"),
-          gte(performanceMetrics.timestamp, startDate)
-        )
-      )
-      .groupBy(performanceMetrics.name);
-  } else if (source === "hourly") {
-    // 7d/30d: query hourly aggregates
-    vitals = await db
-      .select({
-        name: performanceMetricsHourly.name,
-        avg: sql<number>`CASE WHEN SUM(${performanceMetricsHourly.count}) > 0 THEN SUM(${performanceMetricsHourly.sum}) / SUM(${performanceMetricsHourly.count}) ELSE 0 END`,
-        p50: sql<number>`CASE WHEN SUM(${performanceMetricsHourly.count}) > 0 THEN SUM(${performanceMetricsHourly.p50} * ${performanceMetricsHourly.count}) / SUM(${performanceMetricsHourly.count}) ELSE 0 END`,
-        p75: sql<number>`CASE WHEN SUM(${performanceMetricsHourly.count}) > 0 THEN SUM(${performanceMetricsHourly.p75} * ${performanceMetricsHourly.count}) / SUM(${performanceMetricsHourly.count}) ELSE 0 END`,
-        p95: sql<number>`MAX(${performanceMetricsHourly.p95})`,
-        count: sql<number>`SUM(${performanceMetricsHourly.count})`,
-      })
-      .from(performanceMetricsHourly)
-      .where(
-        and(
-          eq(performanceMetricsHourly.projectId, projectId),
-          eq(performanceMetricsHourly.type, "web_vitals"),
-          gte(performanceMetricsHourly.hourBucket, startDate)
-        )
-      )
-      .groupBy(performanceMetricsHourly.name);
-  } else {
-    // 90d/6m/1y: query daily aggregates
-    vitals = await db
-      .select({
-        name: performanceMetricsDaily.name,
-        avg: sql<number>`CASE WHEN SUM(${performanceMetricsDaily.count}) > 0 THEN SUM(${performanceMetricsDaily.sum}) / SUM(${performanceMetricsDaily.count}) ELSE 0 END`,
-        p50: sql<number>`CASE WHEN SUM(${performanceMetricsDaily.count}) > 0 THEN SUM(${performanceMetricsDaily.p50} * ${performanceMetricsDaily.count}) / SUM(${performanceMetricsDaily.count}) ELSE 0 END`,
-        p75: sql<number>`CASE WHEN SUM(${performanceMetricsDaily.count}) > 0 THEN SUM(${performanceMetricsDaily.p75} * ${performanceMetricsDaily.count}) / SUM(${performanceMetricsDaily.count}) ELSE 0 END`,
-        p95: sql<number>`MAX(${performanceMetricsDaily.p95})`,
-        count: sql<number>`SUM(${performanceMetricsDaily.count})`,
-      })
-      .from(performanceMetricsDaily)
-      .where(
-        and(
-          eq(performanceMetricsDaily.projectId, projectId),
-          eq(performanceMetricsDaily.type, "web_vitals"),
-          gte(performanceMetricsDaily.dayBucket, startDate)
-        )
-      )
-      .groupBy(performanceMetricsDaily.name);
-  }
-
-  // Define thresholds for good/needs improvement/poor
-  const thresholds: Record<string, { good: number; needsImprovement: number }> = {
-    LCP: { good: 2500, needsImprovement: 4000 },
-    FID: { good: 100, needsImprovement: 300 },
-    CLS: { good: 100, needsImprovement: 250 }, // Stored as score * 1000
-    TTFB: { good: 800, needsImprovement: 1800 },
-    INP: { good: 200, needsImprovement: 500 },
-  };
-
-  const summary = vitals.map((vital) => {
-    const threshold = thresholds[vital.name];
-    let status: "good" | "needs-improvement" | "poor" = "good";
-
-    if (threshold) {
-      if (vital.avg >= threshold.needsImprovement) {
-        status = "poor";
-      } else if (vital.avg >= threshold.good) {
-        status = "needs-improvement";
-      }
-    }
-
-    return {
-      name: vital.name,
-      avg: Math.round(vital.avg),
-      p50: Math.round(vital.p50),
-      p75: Math.round(vital.p75),
-      p95: Math.round(vital.p95),
-      count: Number(vital.count),
-      status,
-      threshold: threshold || null,
-    };
-  });
-
-  return c.json(summary);
 };
 
 /**
@@ -1284,4 +1166,449 @@ export const getDurationTimeline = async (c: AuthContext) => {
   }
 
   return c.json(rows);
+};
+
+/**
+ * Get external HTTP calls aggregated by host+method.
+ * Reads from raw `spans` table where op='http.client'.
+ * SDK span data shape: { "http.url": string, "http.method"?: string, "http.host"?: string }
+ */
+export const getExternalCalls = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const dateRange = c.req.query("dateRange") as ExtendedDateRange | undefined;
+
+  if (!projectId) {
+    return c.json({ error: "projectId required", code: "MISSING_PROJECT_ID" }, 400);
+  }
+
+  const hasAccess = await verifyProjectAccess(projectId, userId);
+  if (!hasAccess) {
+    return c.json({ error: "Access denied", code: "FORBIDDEN" }, 403);
+  }
+
+  const startDate = getStartDate(dateRange);
+
+  // Extract host from http.url if http.host isn't provided by the SDK.
+  const hostExpr = sql<string>`
+    COALESCE(
+      ${spans.data}->>'http.host',
+      regexp_replace(COALESCE(${spans.data}->>'http.url', ${spans.description}, ''), '^https?://([^/]+).*', '\\1')
+    )
+  `;
+  const methodExpr = sql<string | null>`NULLIF(${spans.data}->>'http.method', '')`;
+
+  const rows = await db
+    .select({
+      host: hostExpr,
+      method: methodExpr,
+      count: sql<number>`count(*)`,
+      avgDuration: sql<number>`avg(${spans.duration})`,
+      p95Duration: sql<number>`percentile_cont(0.95) within group (order by ${spans.duration})`,
+      maxDuration: sql<number>`max(${spans.duration})`,
+      errorCount: sql<number>`count(*) filter (where ${spans.status} = 'error')`,
+    })
+    .from(spans)
+    .innerJoin(transactions, eq(spans.transactionId, transactions.id))
+    .where(
+      and(
+        eq(transactions.projectId, projectId),
+        eq(spans.op, "http.client"),
+        gte(transactions.startTimestamp, startDate)
+      )
+    )
+    .groupBy(hostExpr, methodExpr)
+    .orderBy(sql`count(*) DESC`)
+    .limit(50);
+
+  const totalCount = rows.reduce((sum, r) => sum + Number(r.count), 0);
+
+  return c.json(
+    rows
+      .filter((r) => r.host && r.host.trim().length > 0)
+      .map((r) => ({
+        host: r.host,
+        method: r.method ?? null,
+        count: Number(r.count),
+        avgDuration: Math.round(Number(r.avgDuration)),
+        p95Duration: Math.round(Number(r.p95Duration)),
+        maxDuration: Math.round(Number(r.maxDuration)),
+        errorCount: Number(r.errorCount),
+        errorRate:
+          Number(r.count) > 0
+            ? Math.round((Number(r.errorCount) / Number(r.count)) * 10000) / 100
+            : 0,
+        percentOfTotal:
+          totalCount > 0
+            ? Math.round((Number(r.count) / totalCount) * 10000) / 100
+            : 0,
+      }))
+  );
+};
+
+/**
+ * Get cache operations aggregated by op.
+ * Reads from raw `spans` where op starts with 'cache'.
+ * SDK span data shape: { "cache.hit"?: boolean, "cache.key"?: string }
+ */
+export const getCache = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const dateRange = c.req.query("dateRange") as ExtendedDateRange | undefined;
+
+  if (!projectId) {
+    return c.json({ error: "projectId required", code: "MISSING_PROJECT_ID" }, 400);
+  }
+
+  const hasAccess = await verifyProjectAccess(projectId, userId);
+  if (!hasAccess) {
+    return c.json({ error: "Access denied", code: "FORBIDDEN" }, 403);
+  }
+
+  const startDate = getStartDate(dateRange);
+
+  const hitExpr = sql<boolean>`(${spans.data}->>'cache.hit')::boolean`;
+
+  const rows = await db
+    .select({
+      op: spans.op,
+      count: sql<number>`count(*)`,
+      hits: sql<number>`count(*) filter (where ${hitExpr} = true)`,
+      misses: sql<number>`count(*) filter (where ${hitExpr} = false)`,
+      avgDuration: sql<number>`avg(${spans.duration})`,
+      p95Duration: sql<number>`percentile_cont(0.95) within group (order by ${spans.duration})`,
+    })
+    .from(spans)
+    .innerJoin(transactions, eq(spans.transactionId, transactions.id))
+    .where(
+      and(
+        eq(transactions.projectId, projectId),
+        sql`${spans.op} LIKE 'cache%'`,
+        gte(transactions.startTimestamp, startDate)
+      )
+    )
+    .groupBy(spans.op)
+    .orderBy(sql`count(*) DESC`)
+    .limit(50);
+
+  const totalHits = rows.reduce((sum, r) => sum + Number(r.hits), 0);
+  const totalMisses = rows.reduce((sum, r) => sum + Number(r.misses), 0);
+  const totalCount = rows.reduce((sum, r) => sum + Number(r.count), 0);
+
+  const globalHitRate =
+    totalHits + totalMisses > 0
+      ? Math.round((totalHits / (totalHits + totalMisses)) * 10000) / 100
+      : 0;
+
+  return c.json({
+    entries: rows.map((r) => {
+      const hits = Number(r.hits);
+      const misses = Number(r.misses);
+      const knownOutcomes = hits + misses;
+      return {
+        op: r.op,
+        count: Number(r.count),
+        hits,
+        misses,
+        hitRate:
+          knownOutcomes > 0
+            ? Math.round((hits / knownOutcomes) * 10000) / 100
+            : 0,
+        avgDuration: Math.round(Number(r.avgDuration)),
+        p95Duration: Math.round(Number(r.p95Duration)),
+      };
+    }),
+    summary: {
+      totalCount,
+      totalHits,
+      totalMisses,
+      hitRate: globalHitRate,
+    },
+  });
+};
+
+/**
+ * Get queue / message-bus operations aggregated by messageClass.
+ * Reads from raw `spans` where op IN ('queue.process','queue.publish','messenger.consume','messenger.dispatch').
+ * SDK span data shape: { "messaging.message.class"?: string, "messaging.transport"?: string, "messaging.system"?: string }
+ */
+export const getQueues = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const dateRange = c.req.query("dateRange") as ExtendedDateRange | undefined;
+
+  if (!projectId) {
+    return c.json({ error: "projectId required", code: "MISSING_PROJECT_ID" }, 400);
+  }
+
+  const hasAccess = await verifyProjectAccess(projectId, userId);
+  if (!hasAccess) {
+    return c.json({ error: "Access denied", code: "FORBIDDEN" }, 403);
+  }
+
+  const startDate = getStartDate(dateRange);
+
+  const messageClassExpr = sql<string>`COALESCE(${spans.data}->>'messaging.message.class', ${spans.description}, '(unknown)')`;
+  const transportExpr = sql<string | null>`NULLIF(${spans.data}->>'messaging.transport', '')`;
+
+  const rows = await db
+    .select({
+      op: spans.op,
+      messageClass: messageClassExpr,
+      transport: transportExpr,
+      count: sql<number>`count(*)`,
+      avgDuration: sql<number>`avg(${spans.duration})`,
+      p95Duration: sql<number>`percentile_cont(0.95) within group (order by ${spans.duration})`,
+      maxDuration: sql<number>`max(${spans.duration})`,
+      errorCount: sql<number>`count(*) filter (where ${spans.status} = 'error')`,
+    })
+    .from(spans)
+    .innerJoin(transactions, eq(spans.transactionId, transactions.id))
+    .where(
+      and(
+        eq(transactions.projectId, projectId),
+        sql`(${spans.op} LIKE 'queue.%' OR ${spans.op} LIKE 'messenger.%')`,
+        gte(transactions.startTimestamp, startDate)
+      )
+    )
+    .groupBy(spans.op, messageClassExpr, transportExpr)
+    .orderBy(sql`count(*) DESC`)
+    .limit(100);
+
+  const totalCount = rows.reduce((sum, r) => sum + Number(r.count), 0);
+  const totalErrors = rows.reduce((sum, r) => sum + Number(r.errorCount), 0);
+  const totalDuration = rows.reduce(
+    (sum, r) => sum + Number(r.avgDuration) * Number(r.count),
+    0
+  );
+  const weightedAvg = totalCount > 0 ? totalDuration / totalCount : 0;
+
+  return c.json({
+    entries: rows.map((r) => ({
+      op: r.op,
+      messageClass: r.messageClass,
+      transport: r.transport ?? null,
+      count: Number(r.count),
+      avgDuration: Math.round(Number(r.avgDuration)),
+      p95Duration: Math.round(Number(r.p95Duration)),
+      maxDuration: Math.round(Number(r.maxDuration)),
+      errorCount: Number(r.errorCount),
+      errorRate:
+        Number(r.count) > 0
+          ? Math.round((Number(r.errorCount) / Number(r.count)) * 10000) / 100
+          : 0,
+    })),
+    summary: {
+      totalCount,
+      totalErrors,
+      errorRate:
+        totalCount > 0
+          ? Math.round((totalErrors / totalCount) * 10000) / 100
+          : 0,
+      avgDuration: Math.round(weightedAvg),
+    },
+  });
+};
+
+/**
+ * Get detailed stats for a single endpoint (by transaction name).
+ * Returns endpoint summary, top DB queries, recent transactions.
+ */
+export const getEndpointDetail = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const name = c.req.query("name");
+  const dateRange = c.req.query("dateRange") as ExtendedDateRange | undefined;
+
+  if (!projectId) {
+    return c.json({ error: "projectId required", code: "MISSING_PROJECT_ID" }, 400);
+  }
+  if (!name) {
+    return c.json({ error: "name required", code: "MISSING_NAME" }, 400);
+  }
+
+  const hasAccess = await verifyProjectAccess(projectId, userId);
+  if (!hasAccess) {
+    return c.json({ error: "Access denied", code: "FORBIDDEN" }, 403);
+  }
+
+  const startDate = getStartDate(dateRange);
+
+  const summaryResult = await db
+    .select({
+      name: transactions.name,
+      op: transactions.op,
+      count: sql<number>`count(*)`,
+      avgDuration: sql<number>`avg(${transactions.duration})`,
+      p50: sql<number>`percentile_cont(0.5) within group (order by ${transactions.duration})`,
+      p95: sql<number>`percentile_cont(0.95) within group (order by ${transactions.duration})`,
+      p99: sql<number>`percentile_cont(0.99) within group (order by ${transactions.duration})`,
+      maxDuration: sql<number>`max(${transactions.duration})`,
+      errorCount: sql<number>`count(*) filter (where ${transactions.status} = 'error')`,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.projectId, projectId),
+        eq(transactions.name, name),
+        gte(transactions.startTimestamp, startDate)
+      )
+    )
+    .groupBy(transactions.name, transactions.op);
+
+  const endpoint = summaryResult[0]
+    ? {
+        name: summaryResult[0].name,
+        op: summaryResult[0].op,
+        count: Number(summaryResult[0].count),
+        avgDuration: Math.round(Number(summaryResult[0].avgDuration)),
+        p50: Math.round(Number(summaryResult[0].p50)),
+        p95: Math.round(Number(summaryResult[0].p95)),
+        p99: Math.round(Number(summaryResult[0].p99)),
+        maxDuration: Math.round(Number(summaryResult[0].maxDuration)),
+        errorCount: Number(summaryResult[0].errorCount),
+        errorRate:
+          Number(summaryResult[0].count) > 0
+            ? Math.round(
+                (Number(summaryResult[0].errorCount) /
+                  Number(summaryResult[0].count)) *
+                  10000
+              ) / 100
+            : 0,
+      }
+    : null;
+
+  const queryDescription = sql<string>`COALESCE(${spans.description}, ${spans.data}->>'sql', '')`;
+
+  const topQueries = await db
+    .select({
+      description: queryDescription,
+      count: sql<number>`count(*)`,
+      totalDuration: sql<number>`sum(${spans.duration})`,
+      avgDuration: sql<number>`avg(${spans.duration})`,
+    })
+    .from(spans)
+    .innerJoin(transactions, eq(spans.transactionId, transactions.id))
+    .where(
+      and(
+        eq(transactions.projectId, projectId),
+        eq(transactions.name, name),
+        inArray(spans.op, ["db.sql.query", "db.query"]),
+        gte(transactions.startTimestamp, startDate)
+      )
+    )
+    .groupBy(queryDescription)
+    .orderBy(sql`sum(${spans.duration}) DESC`)
+    .limit(10);
+
+  const recentTransactions = await db
+    .select({
+      id: transactions.id,
+      duration: transactions.duration,
+      status: transactions.status,
+      startTimestamp: transactions.startTimestamp,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.projectId, projectId),
+        eq(transactions.name, name),
+        gte(transactions.startTimestamp, startDate)
+      )
+    )
+    .orderBy(desc(transactions.startTimestamp))
+    .limit(20);
+
+  return c.json({
+    endpoint,
+    topQueries: topQueries.map((q) => ({
+      description: q.description || "",
+      count: Number(q.count),
+      totalDuration: Number(q.totalDuration),
+      avgDuration: Math.round(Number(q.avgDuration)),
+    })),
+    recentTransactions: recentTransactions.map((t) => ({
+      id: t.id,
+      duration: t.duration,
+      status: t.status,
+      startTimestamp: t.startTimestamp,
+    })),
+  });
+};
+
+/**
+ * Get Core Web Vitals p75 per metric for a project (frontend projects).
+ * Reads from `performance_metrics` where type='web_vitals'.
+ * Thresholds (Google): good/needs-improvement/poor per metric.
+ */
+export const getWebVitals = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const dateRange = c.req.query("dateRange") as ExtendedDateRange | undefined;
+
+  if (!projectId) {
+    return c.json({ error: "projectId required", code: "MISSING_PROJECT_ID" }, 400);
+  }
+
+  const hasAccess = await verifyProjectAccess(projectId, userId);
+  if (!hasAccess) {
+    return c.json({ error: "Access denied", code: "FORBIDDEN" }, 403);
+  }
+
+  const startDate = getStartDate(dateRange);
+
+  const rows = await db
+    .select({
+      name: performanceMetrics.name,
+      count: sql<number>`count(*)`,
+      p75: sql<number>`percentile_cont(0.75) within group (order by ${performanceMetrics.value})`,
+      p95: sql<number>`percentile_cont(0.95) within group (order by ${performanceMetrics.value})`,
+    })
+    .from(performanceMetrics)
+    .where(
+      and(
+        eq(performanceMetrics.projectId, projectId),
+        eq(performanceMetrics.type, "web_vitals"),
+        gte(performanceMetrics.timestamp, startDate)
+      )
+    )
+    .groupBy(performanceMetrics.name);
+
+  const metrics: Record<
+    string,
+    { name: string; count: number; p75: number; p95: number; rating: "good" | "needs-improvement" | "poor" | "unknown" }
+  > = {};
+
+  const thresholds: Record<string, { good: number; poor: number }> = {
+    LCP: { good: 2500, poor: 4000 },
+    FCP: { good: 1800, poor: 3000 },
+    CLS: { good: 100, poor: 250 }, // stored as CLS * 1000 (int)
+    INP: { good: 200, poor: 500 },
+    FID: { good: 100, poor: 300 },
+    TTFB: { good: 800, poor: 1800 },
+  };
+
+  for (const row of rows) {
+    const key = String(row.name).toUpperCase();
+    const p75 = Math.round(Number(row.p75));
+    const t = thresholds[key];
+    let rating: "good" | "needs-improvement" | "poor" | "unknown" = "unknown";
+    if (t) {
+      if (p75 <= t.good) rating = "good";
+      else if (p75 <= t.poor) rating = "needs-improvement";
+      else rating = "poor";
+    }
+    metrics[key] = {
+      name: key,
+      count: Number(row.count),
+      p75,
+      p95: Math.round(Number(row.p95)),
+      rating,
+    };
+  }
+
+  return c.json({
+    metrics,
+    totalSamples: rows.reduce((sum, r) => sum + Number(r.count), 0),
+  });
 };

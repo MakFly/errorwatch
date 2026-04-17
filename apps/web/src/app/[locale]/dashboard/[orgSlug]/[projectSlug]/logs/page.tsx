@@ -9,6 +9,7 @@ import type { LiveLogEvent } from "@/hooks/useSSE";
 import { useSSEStatus } from "@/components/sse-provider";
 import { Pause, Play, RefreshCw } from "lucide-react";
 import { LogDetailModal } from "@/components/logs/log-detail-modal";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 
 const LEVEL_COLORS: Record<LogLevel, string> = {
   debug: "text-slate-400",
@@ -27,6 +28,7 @@ function formatTimestamp(value: Date | string): string {
 
 export default function LogsPage() {
   const t = useTranslations("logs");
+  const tHeader = useTranslations("pageHeader.logs");
   const { currentProjectId } = useCurrentProject();
   const sseStatus = useSSEStatus();
   const [level, setLevel] = useState<LogLevel | "all">("all");
@@ -94,6 +96,8 @@ export default function LogsPage() {
       url: null,
       requestId: null,
       userId: null,
+      traceId: null,
+      spanId: null,
       ingestedAt: new Date(liveLog.timestamp),
     };
 
@@ -118,9 +122,8 @@ export default function LogsPage() {
   }, [mergedEntries]);
 
   return (
-    <div className="min-h-screen bg-issues-bg p-4 md:p-6">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h1 className="mr-4 font-mono text-lg font-semibold text-foreground">{t("title")}</h1>
+    <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
+      <PageHeader title={tHeader("title")} description={tHeader("description")}>
         <span className={`rounded px-2 py-1 text-xs ${sseStatus === "connected" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>
           {sseStatus === "connected" ? t("live") : t("reconnecting")}
         </span>
@@ -132,7 +135,7 @@ export default function LogsPage() {
         </span>
         <button
           onClick={() => setPaused((p) => !p)}
-          className={`ml-auto inline-flex items-center gap-1 rounded border px-2 py-1 text-xs ${paused ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300" : "border-amber-500/50 bg-amber-500/15 text-amber-300"}`}
+          className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs ${paused ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300" : "border-amber-500/50 bg-amber-500/15 text-amber-300"}`}
         >
           {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
           {paused ? t("resume") : t("pause")}
@@ -155,9 +158,9 @@ export default function LogsPage() {
           <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
           {isRefreshing ? t("refreshing") : t("refresh")}
         </button>
-      </div>
+      </PageHeader>
 
-      <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
         <select
           className="rounded border border-border bg-background px-2 py-2 text-sm"
           value={level}
@@ -208,7 +211,7 @@ export default function LogsPage() {
           mergedEntries.map((entry) => (
             <div
               key={entry.id}
-              className="grid grid-cols-[220px_80px_130px_1fr] gap-3 border-b border-white/5 py-1 cursor-pointer hover:bg-white/5"
+              className="grid grid-cols-[220px_80px_130px_90px_1fr] gap-3 border-b border-white/5 py-1 cursor-pointer hover:bg-white/5"
               onClick={() => setSelectedLog(entry)}
               role="button"
               tabIndex={0}
@@ -222,6 +225,12 @@ export default function LogsPage() {
               <span className="text-slate-500">{formatTimestamp(entry.createdAt)}</span>
               <span className={LEVEL_COLORS[entry.level]}>{entry.level}</span>
               <span className="text-cyan-400">{entry.channel}</span>
+              <span
+                className="text-slate-500 truncate"
+                title={entry.traceId ?? "no trace"}
+              >
+                {entry.traceId ? entry.traceId.slice(0, 8) : "—"}
+              </span>
               <span className="min-w-0 truncate text-slate-200">{entry.message}</span>
             </div>
           ))

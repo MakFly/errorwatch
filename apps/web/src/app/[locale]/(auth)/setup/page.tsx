@@ -16,9 +16,10 @@ export default function SetupPage() {
   const { data: session, isPending: sessionPending } = useSession();
   const bootstrapMutation = trpc.instance.bootstrap.useMutation();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const isDev = process.env.NODE_ENV === "development";
+  const [name, setName] = useState(isDev ? "Dev Owner" : "");
+  const [email, setEmail] = useState(isDev ? "dev@errorwatch.local" : "");
+  const [password, setPassword] = useState(isDev ? "devpassword123" : "");
   const [isLoading, setIsLoading] = useState(false);
   const pendingOnboardingRef = useRef(false);
 
@@ -165,19 +166,16 @@ export default function SetupPage() {
           </svg>
         </div>
 
-        <div
-          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-20 blur-3xl"
-          style={{ background: "hsl(158 64% 52%)" }}
-        />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-20 blur-3xl bg-primary" />
         <div
           className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full opacity-15 blur-3xl"
-          style={{ background: "hsl(205 80% 55%)" }}
+          style={{ background: "hsl(var(--brand-secondary))" }}
         />
 
         <div className="relative text-center max-w-md animate-fade-in-up animate-delay-200">
           <div className="animate-float">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-emerald-600 to-cyan-600 flex items-center justify-center animate-pulse-glow">
-              <ServerCog className="h-10 w-10 text-white" />
+            <div className="w-20 h-20 mx-auto rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center animate-pulse-glow">
+              <ServerCog className="h-10 w-10 text-primary-foreground" />
             </div>
           </div>
 
@@ -188,11 +186,11 @@ export default function SetupPage() {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="flex items-center gap-4 p-4 rounded-xl bg-card/50 border border-border/50 transition-all duration-300 hover:bg-card/80 hover:border-emerald-500/30 hover:scale-[1.02] animate-fade-in-up"
+                className="flex items-center gap-4 p-4 rounded-lg bg-card/50 border border-border/50 transition-all duration-300 hover:bg-card/80 hover:border-primary/30 hover:scale-[1.02] animate-fade-in-up"
                 style={{ animationDelay: `${300 + index * 100}ms` }}
               >
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <feature.icon className="h-5 w-5 text-emerald-400" />
+                <div className="flex-shrink-0 w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                  <feature.icon className="h-5 w-5 text-primary" />
                 </div>
                 <span className="text-sm">{feature.text}</span>
               </div>

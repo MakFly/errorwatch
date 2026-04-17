@@ -117,7 +117,6 @@ export const api = {
     canChangePassword: userApi.canChangePassword,
   },
   performance: {
-    getWebVitals: performanceApi.getWebVitals,
     getTransactions: performanceApi.getTransactions,
     getTransaction: performanceApi.getTransaction,
     getSlowest: performanceApi.getSlowest,
@@ -127,6 +126,11 @@ export const api = {
     getTopEndpoints: performanceApi.getTopEndpoints,
     getThroughputTimeline: performanceApi.getThroughputTimeline,
     getDurationTimeline: performanceApi.getDurationTimeline,
+    getExternalCalls: performanceApi.getExternalCalls,
+    getCache: performanceApi.getCache,
+    getQueues: performanceApi.getQueues,
+    getEndpointDetail: performanceApi.getEndpointDetail,
+    getWebVitals: performanceApi.getWebVitals,
   },
   logs: {
     tail: logsApi.tail,

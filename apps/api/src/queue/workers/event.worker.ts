@@ -201,24 +201,36 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
     sdk,
     frames,
     fingerprintVersion,
+    sdkFingerprint,
+    traceId,
+    spanId,
   } = job.data;
 
   // Scrub PII from message and stack
   const scrubbedMessage = scrubPII(message);
   const scrubbedStack = scrubPII(stack);
 
-  // Check custom fingerprint rules before generating default fingerprint
+  // Priority 1: SDK-supplied explicit fingerprint (scoped to project for isolation)
   let fingerprint: string | null = null;
-  const rules = await getProjectRules(projectId);
-  for (const rule of rules) {
-    try {
-      if (new RegExp(rule.pattern).test(message)) {
-        fingerprint = createHash("sha1").update(`${projectId}|custom|${rule.groupKey}`).digest("hex");
-        logger.debug("Custom fingerprint rule matched", { projectId, pattern: rule.pattern, groupKey: rule.groupKey });
-        break;
+  if (sdkFingerprint) {
+    fingerprint = createHash("sha1")
+      .update(`${projectId}|sdk|${sdkFingerprint}`)
+      .digest("hex");
+  }
+
+  // Priority 2: Custom per-project fingerprint rules (regex on message)
+  if (!fingerprint) {
+    const rules = await getProjectRules(projectId);
+    for (const rule of rules) {
+      try {
+        if (new RegExp(rule.pattern).test(message)) {
+          fingerprint = createHash("sha1").update(`${projectId}|custom|${rule.groupKey}`).digest("hex");
+          logger.debug("Custom fingerprint rule matched", { projectId, pattern: rule.pattern, groupKey: rule.groupKey });
+          break;
+        }
+      } catch {
+        // Invalid regex, skip
       }
-    } catch {
-      // Invalid regex, skip
     }
   }
 
@@ -299,6 +311,8 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
       sdk: sdk || null,
       frames: frames || null,
       fingerprintVersion: fingerprintVersion ?? 1,
+      traceId: traceId || null,
+      spanId: spanId || null,
     });
   } catch (e: any) {
     if (e?.code === "23505") {
