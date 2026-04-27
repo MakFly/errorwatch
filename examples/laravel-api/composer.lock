@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e930960f5db92fdc3b636eab553609fe",
+    "content-hash": "918c1d617f77a486764322d0b49749b1",
     "packages": [
         {
             "name": "brick/math",
@@ -509,28 +509,41 @@
             "time": "2025-03-06T22:45:56+00:00"
         },
         {
-            "name": "errorwatch/sdk-laravel",
-            "version": "0.2.0",
+            "name": "errorwatch/sdk-php",
+            "version": "2.0.0",
             "dist": {
                 "type": "path",
-                "url": "../../packages/sdk-laravel",
-                "reference": "57a6617dce9050c154bb800f4608ff8a6bbea659"
+                "url": "../../packages/sdk-php",
+                "reference": "c5ee617d2232a5bde5d788d19b1cbe3ec22126fd"
             },
             "require": {
                 "guzzlehttp/guzzle": "^7.0",
-                "illuminate/auth": "^10.0|^11.0|^12.0",
-                "illuminate/console": "^10.0|^11.0|^12.0",
-                "illuminate/database": "^10.0|^11.0|^12.0",
-                "illuminate/http": "^10.0|^11.0|^12.0",
-                "illuminate/queue": "^10.0|^11.0|^12.0",
-                "illuminate/support": "^10.0|^11.0|^12.0",
-                "php": "^8.1"
+                "php": "^8.1",
+                "psr/log": "^1.0|^2.0|^3.0"
             },
             "require-dev": {
+                "doctrine/dbal": "^4.4",
                 "mockery/mockery": "^1.6",
+                "monolog/monolog": "^3.0",
                 "orchestra/testbench": "^8.0|^9.0|^10.0",
-                "phpstan/phpstan": "^1.11",
-                "phpunit/phpunit": "^10.0|^11.0"
+                "phpunit/phpunit": "^10.0|^11.0",
+                "symfony/event-dispatcher": "^6.0|^7.0|^8.0",
+                "symfony/framework-bundle": "^6.0|^7.0|^8.0",
+                "symfony/http-client": "^6.0|^7.0|^8.0",
+                "symfony/http-kernel": "^6.0|^7.0|^8.0",
+                "symfony/messenger": "^6.0|^7.0|^8.0",
+                "symfony/security-bundle": "^6.2|^7.0|^8.0",
+                "twig/twig": "^3.0"
+            },
+            "suggest": {
+                "doctrine/dbal": "Required to enable Doctrine query tracing in APM",
+                "illuminate/support": "Required for Laravel integration (^10.0|^11.0|^12.0|^13.0)",
+                "monolog/monolog": "Required to enable automatic Monolog forwarding",
+                "symfony/framework-bundle": "Required for Symfony integration (^6.0|^7.0|^8.0)",
+                "symfony/http-client": "Required for Symfony HTTP client tracing (^6.0|^7.0|^8.0)",
+                "symfony/messenger": "Required to enable messenger worker failure capture",
+                "symfony/security-bundle": "Required to enable user context capture and security event tracking",
+                "twig/twig": "Required to enable the session replay Twig extension"
             },
             "type": "library",
             "extra": {
@@ -541,19 +554,20 @@
                     "aliases": {
                         "ErrorWatch": "ErrorWatch\\Laravel\\Facades\\ErrorWatch"
                     }
-                },
-                "branch-alias": {
-                    "dev-main": "0.2.x-dev"
                 }
             },
             "autoload": {
                 "psr-4": {
-                    "ErrorWatch\\Laravel\\": "src/"
+                    "ErrorWatch\\Sdk\\": "src/",
+                    "ErrorWatch\\Laravel\\": "src/Laravel/",
+                    "ErrorWatch\\Symfony\\": "src/Symfony/"
                 }
             },
             "autoload-dev": {
                 "psr-4": {
-                    "ErrorWatch\\Laravel\\Tests\\": "tests/"
+                    "ErrorWatch\\Sdk\\Tests\\": "tests/",
+                    "ErrorWatch\\Laravel\\Tests\\": "tests/Laravel/",
+                    "ErrorWatch\\Symfony\\Tests\\": "tests/Symfony/"
                 }
             },
             "scripts": {
@@ -563,14 +577,11 @@
                 "test:coverage": [
                     "phpunit --coverage-html coverage"
                 ],
-                "stan": [
-                    "phpstan analyse"
+                "post-install-cmd": [
+                    "ErrorWatch\\Sdk\\Composer\\SymfonyBundleInstaller::postInstall"
                 ],
-                "cs:check": [
-                    "php-cs-fixer fix --dry-run --diff"
-                ],
-                "cs:fix": [
-                    "php-cs-fixer fix"
+                "post-update-cmd": [
+                    "ErrorWatch\\Sdk\\Composer\\SymfonyBundleInstaller::postInstall"
                 ]
             },
             "license": [
@@ -583,22 +594,20 @@
                     "homepage": "https://errorwatch.io"
                 }
             ],
-            "description": "Laravel SDK for ErrorWatch - Self-hosted error monitoring and APM",
+            "description": "ErrorWatch SDK for PHP - Error monitoring for Laravel, Symfony, and vanilla PHP",
             "keywords": [
                 "apm",
                 "error-monitoring",
                 "errorwatch",
                 "exception",
                 "laravel",
-                "logging",
-                "performance",
+                "php-sdk",
                 "sentry-alternative",
-                "tracing"
+                "symfony"
             ],
             "support": {
-                "issues": "https://github.com/MakFly/errorwatch-sdk-laravel/issues",
-                "source": "https://github.com/MakFly/errorwatch-sdk-laravel",
-                "docs": "https://docs.errorwatch.io"
+                "issues": "https://github.com/MakFly/errorwatch-sdk-php/issues",
+                "source": "https://github.com/MakFly/errorwatch-sdk-php"
             },
             "transport-options": {
                 "relative": true
@@ -4617,7 +4626,7 @@
         },
         {
             "name": "symfony/polyfill-intl-idn",
-            "version": "v1.33.0",
+            "version": "v1.34.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-intl-idn.git",
@@ -4680,7 +4689,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-intl-idn/tree/v1.33.0"
+                "source": "https://github.com/symfony/polyfill-intl-idn/tree/v1.34.0"
             },
             "funding": [
                 {
@@ -4704,7 +4713,7 @@
         },
         {
             "name": "symfony/polyfill-intl-normalizer",
-            "version": "v1.33.0",
+            "version": "v1.34.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-intl-normalizer.git",
@@ -4765,7 +4774,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-intl-normalizer/tree/v1.33.0"
+                "source": "https://github.com/symfony/polyfill-intl-normalizer/tree/v1.34.0"
             },
             "funding": [
                 {
@@ -4789,16 +4798,16 @@
         },
         {
             "name": "symfony/polyfill-mbstring",
-            "version": "v1.33.0",
+            "version": "v1.34.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-mbstring.git",
-                "reference": "6d857f4d76bd4b343eac26d6b539585d2bc56493"
+                "reference": "6a21eb99c6973357967f6ce3708cd55a6bec6315"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/6d857f4d76bd4b343eac26d6b539585d2bc56493",
-                "reference": "6d857f4d76bd4b343eac26d6b539585d2bc56493",
+                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/6a21eb99c6973357967f6ce3708cd55a6bec6315",
+                "reference": "6a21eb99c6973357967f6ce3708cd55a6bec6315",
                 "shasum": ""
             },
             "require": {
@@ -4850,7 +4859,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.33.0"
+                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.34.0"
             },
             "funding": [
                 {
@@ -4870,7 +4879,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2024-12-23T08:48:59+00:00"
+            "time": "2026-04-10T17:25:58+00:00"
         },
         {
             "name": "symfony/polyfill-php80",

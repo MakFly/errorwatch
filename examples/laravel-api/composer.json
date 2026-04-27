@@ -6,11 +6,11 @@
     "keywords": ["laravel", "errorwatch", "example", "api"],
     "license": "MIT",
     "repositories": [
-        { "type": "path", "url": "../../packages/sdk-laravel" }
+        { "type": "path", "url": "../../packages/sdk-php" }
     ],
     "require": {
         "php": "^8.2",
-        "errorwatch/sdk-laravel": "*",
+        "errorwatch/sdk-php": "*",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1"

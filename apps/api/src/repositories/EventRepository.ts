@@ -18,6 +18,20 @@ export const EventRepository = {
         breadcrumbs: errorEvents.breadcrumbs,
         sessionId: errorEvents.sessionId,
         createdAt: errorEvents.createdAt,
+        release: errorEvents.release,
+        userId: errorEvents.userId,
+        exceptionType: errorEvents.exceptionType,
+        exceptionValue: errorEvents.exceptionValue,
+        tags: errorEvents.tags,
+        request: errorEvents.request,
+        contexts: errorEvents.contexts,
+        frames: errorEvents.frames,
+        platform: errorEvents.platform,
+        serverName: errorEvents.serverName,
+        userContext: errorEvents.userContext,
+        sdk: errorEvents.sdk,
+        extra: errorEvents.extra,
+        fingerprintVersion: errorEvents.fingerprintVersion,
       })
       .from(errorEvents)
       .where(eq(errorEvents.fingerprint, fingerprint))

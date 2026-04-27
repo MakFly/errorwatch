@@ -62,3 +62,18 @@ examples/*/composer.lock
 
 # instant-grep index
 .ig/
+.ignore
+
+# Local scratch / planning notes
+.scratch/
+
+# Playwright test artifacts
+test-results/
+.playwright-mcp/
+
+# Screenshots / image dumps (never commit)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp

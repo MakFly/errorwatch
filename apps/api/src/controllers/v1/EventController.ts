@@ -2,6 +2,7 @@
  * Event Controller
  * @description Handles error event submission from SDKs
  * Events are queued for async processing via BullMQ
+ * Supports both legacy v1 format and enriched v2 format.
  */
 import type { Context } from "hono";
 import type { AppEnv } from "../../types/hono";
@@ -13,13 +14,14 @@ import { getProjectPlan } from "../../services/subscriptions";
 import { eventQueue } from "../../queue/queues";
 import { isRedisAvailable, redis } from "../../queue/connection";
 import { ProjectSettingsRepository } from "../../repositories/ProjectSettingsRepository";
+import { normalizeEvent } from "../../services/eventNormalizer";
 
 // === Configuration ===
 const isProduction = process.env.NODE_ENV === "production";
 
-// === Validation Schema ===
+// === Validation Schemas ===
 
-// Breadcrumb schema for user action trail
+// Breadcrumb schema for user action trail (legacy v1: timestamp as number)
 const breadcrumbSchema = z.object({
   timestamp: z.number(),
   category: z.enum(['ui', 'navigation', 'console', 'http', 'user']),
@@ -29,19 +31,18 @@ const breadcrumbSchema = z.object({
   data: z.record(z.string(), z.any()).optional(),
 });
 
-// Structured stack frame schema (SDK provides these from parsed exceptions)
-const frameSchema = z.object({
-  filename: z.string().max(2000),
-  function: z.string().max(500).nullable().optional(),
-  lineno: z.number().int().nullable().optional(),
-  colno: z.number().int().nullable().optional(),
-  in_app: z.boolean().optional(),
-  context_line: z.string().max(2000).nullable().optional(),
-  pre_context: z.array(z.string().max(2000)).max(20).nullable().optional(),
-  post_context: z.array(z.string().max(2000)).max(20).nullable().optional(),
+// v2 breadcrumb: timestamp can be number (epoch ms) or string (ISO 8601)
+const breadcrumbSchemaV2 = z.object({
+  timestamp: z.union([z.number(), z.string()]).optional(),
+  category: z.string().max(50).optional(),
+  type: z.string().max(50).optional(),
+  level: z.enum(['debug', 'info', 'warning', 'error']).optional(),
+  message: z.string().max(1000).optional(),
+  data: z.record(z.string(), z.any()).optional(),
 });
 
-const eventSchema = z.object({
+// Legacy v1 schema — required fields: message, file, line, stack
+const legacyEventSchema = z.object({
   message: z.string().min(1).max(10000),
   file: z.string().min(1).max(1000),
   line: z.number().int().positive(),
@@ -51,17 +52,72 @@ const eventSchema = z.object({
   status_code: z.number().int().min(100).max(599).optional().nullable(),
   level: z.enum(["fatal", "error", "warning", "info", "debug"]).default("error"),
   created_at: z.number().default(() => Date.now()),
-  // Breadcrumbs: array of user actions before the error
   breadcrumbs: z.array(breadcrumbSchema).max(100).optional(),
-  // Session ID for session replay linking
   session_id: z.string().max(100).optional(),
-  // Release version (e.g. "v1.2.3", "abc123")
   release: z.string().max(200).optional().nullable(),
-  // User identifier for impact analysis
   user_id: z.string().max(200).optional().nullable(),
-  // Structured stack frames parsed by the SDK (preferred over raw `stack`)
-  frames: z.array(frameSchema).max(100).optional(),
-  // Explicit fingerprint override (SDK-computed grouping key, 64 hex max)
+  // SDK-supplied explicit fingerprint (overrides auto-grouping)
+  fingerprint: z.string().max(128).optional().nullable(),
+  // Distributed tracing correlation (W3C traceparent)
+  trace_id: z.string().max(64).optional().nullable(),
+  span_id: z.string().max(32).optional().nullable(),
+});
+
+// Enriched v2 schema — structured exception + optional rich context
+const enrichedEventSchema = z.object({
+  // Required for v2
+  exception: z.object({
+    type: z.string().min(1).max(500),
+    value: z.string().min(1).max(10000),
+  }),
+  // Stack can come from frames instead
+  file: z.string().max(1000).optional(),
+  line: z.number().int().positive().optional(),
+  stack: z.string().max(100000).optional(),
+  frames: z.array(z.object({
+    filename: z.string().max(1000),
+    function: z.string().max(500).optional().nullable(),
+    lineno: z.number().int().optional().nullable(),
+    colno: z.number().int().optional().nullable(),
+    in_app: z.boolean().optional(),
+    context_line: z.string().max(500).optional().nullable(),
+    pre_context: z.array(z.string()).optional().nullable(),
+    post_context: z.array(z.string()).optional().nullable(),
+  })).max(200).optional(),
+  // New context fields
+  platform: z.string().max(50).optional(),
+  server_name: z.string().max(200).optional(),
+  tags: z.record(z.string().max(200), z.string().max(1000)).optional(),
+  extra: z.record(z.string(), z.any()).optional(),
+  user: z.object({
+    id: z.string().max(200).optional(),
+    email: z.string().max(200).optional(),
+    ip_address: z.string().max(45).optional(),
+    username: z.string().max(200).optional(),
+  }).optional(),
+  request: z.object({
+    url: z.string().max(2000).optional(),
+    method: z.string().max(10).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
+    query_string: z.string().max(5000).optional(),
+    data: z.any().optional(),
+  }).optional(),
+  contexts: z.record(z.string(), z.any()).optional(),
+  sdk: z.object({
+    name: z.string().max(100),
+    version: z.string().max(50),
+  }).optional(),
+  // Shared fields (same as legacy)
+  env: z.string().max(50).default("unknown"),
+  url: z.string().url().max(2000).optional().nullable(),
+  status_code: z.number().int().min(100).max(599).optional().nullable(),
+  level: z.enum(["fatal", "error", "warning", "info", "debug"]).default("error"),
+  created_at: z.union([z.number(), z.string()]).default(() => Date.now()),
+  breadcrumbs: z.array(breadcrumbSchemaV2).max(100).optional(),
+  session_id: z.string().max(100).optional(),
+  release: z.string().max(200).optional().nullable(),
+  user_id: z.string().max(200).optional().nullable(),
+  // SDK-supplied explicit fingerprint (overrides auto-grouping)
   fingerprint: z.string().max(128).optional().nullable(),
   // Distributed tracing correlation (W3C traceparent)
   trace_id: z.string().max(64).optional().nullable(),
@@ -74,9 +130,14 @@ const eventSchema = z.object({
  */
 export const submit = async (c: Context<AppEnv>) => {
   try {
-    // Parse and validate input (fast, sync)
-    const rawInput = await c.req.json();
-    const input = eventSchema.parse(rawInput);
+    // Parse raw body and detect format before Zod validation
+    const rawBody = await c.req.json();
+    const isEnriched = rawBody?.exception != null && typeof rawBody.exception === "object";
+
+    // Validate against the appropriate schema
+    const validated = isEnriched
+      ? enrichedEventSchema.parse(rawBody)
+      : legacyEventSchema.parse(rawBody);
 
     // Get API key context
     const apiKeyData = c.get("apiKey");
@@ -142,10 +203,17 @@ export const submit = async (c: Context<AppEnv>) => {
       );
     }
 
-    // Dedup: check Redis for recent identical event (10s window)
-    const dedupFingerprint = createHash("sha1")
-      .update(`${projectId}|${input.message}|${input.file}|${input.line}`)
-      .digest("hex");
+    // Normalize to unified EventJobData (handles both formats)
+    const normalized = normalizeEvent(validated, projectId, isEnriched);
+
+    // Dedup fingerprint differs by format:
+    //   v1: sha1(projectId|message|file|line)
+    //   v2: sha1(projectId|exceptionType|exceptionValue|file)
+    const dedupRaw = isEnriched
+      ? `${projectId}|${normalized.exceptionType}|${normalized.exceptionValue}|${normalized.file}`
+      : `${projectId}|${normalized.message}|${normalized.file}|${normalized.line}`;
+
+    const dedupFingerprint = createHash("sha1").update(dedupRaw).digest("hex");
     const dedupKey = `dedup:evt:${projectId}:${dedupFingerprint}`;
     const isDuplicate = await redis.get(dedupKey);
     if (isDuplicate) {
@@ -154,43 +222,22 @@ export const submit = async (c: Context<AppEnv>) => {
     }
     await redis.setex(dedupKey, 10, "1");
 
-    // Normalize timestamp
-    const createdAt =
-      input.created_at < 1e12
-        ? new Date(input.created_at * 1000)
-        : new Date(input.created_at);
-
     // Only link replay for critical errors
-    const shouldLinkReplay = ['fatal', 'error'].includes(input.level);
+    const shouldLinkReplay = ['fatal', 'error'].includes(normalized.level);
+    if (!shouldLinkReplay) {
+      normalized.sessionId = null;
+    }
 
     // Deterministic jobId for BullMQ dedup (10s window)
     const jobId = `evt-${projectId}-${dedupFingerprint}-${Math.floor(Date.now() / 10000)}`;
 
     // Queue event for async processing (< 5ms)
-    await eventQueue.add("process-event", {
-      projectId,
-      message: input.message,
-      file: input.file,
-      line: input.line,
-      stack: input.stack,
-      env: input.env,
-      url: input.url || null,
-      level: input.level,
-      statusCode: input.status_code || null,
-      breadcrumbs: input.breadcrumbs ? JSON.stringify(input.breadcrumbs) : null,
-      sessionId: shouldLinkReplay ? (input.session_id || null) : null,
-      createdAt: createdAt.toISOString(),
-      release: input.release || null,
-      userId: input.user_id || null,
-      frames: input.frames,
-      sdkFingerprint: input.fingerprint || null,
-      traceId: input.trace_id || null,
-      spanId: input.span_id || null,
-    }, { jobId });
+    await eventQueue.add("process-event", normalized, { jobId });
 
     logger.debug("Event queued", {
       projectId,
-      level: input.level,
+      level: normalized.level,
+      format: isEnriched ? "v2" : "v1",
     });
 
     // Increment cached quota counter (fire-and-forget, non-blocking)
