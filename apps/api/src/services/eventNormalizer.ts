@@ -37,10 +37,12 @@ export interface LegacyValidatedEvent {
  * Must match the fields produced by enrichedEventSchema in EventController.
  */
 export interface EnrichedValidatedEvent {
-  exception: {
+  exception?: {
     type: string;
     value: string;
   };
+  message?: string;
+  event_id?: string;
   file?: string;
   line?: number;
   stack?: string;
@@ -85,9 +87,19 @@ export interface EnrichedValidatedEvent {
   session_id?: string;
   release?: string | null;
   user_id?: string | null;
-  fingerprint?: string | null;
+  fingerprint?: string | string[] | null;
   trace_id?: string | null;
   span_id?: string | null;
+}
+
+/**
+ * Collapse an SDK fingerprint (string | string[] | null) to a stable string
+ * suitable for storage. Arrays are joined with `|` to preserve ordering.
+ */
+function flattenFingerprint(fp: string | string[] | null | undefined): string | null {
+  if (fp == null) return null;
+  if (Array.isArray(fp)) return fp.length === 0 ? null : fp.join("|");
+  return fp;
 }
 
 /**
@@ -126,7 +138,7 @@ function normalizeLegacy(input: LegacyValidatedEvent, projectId: string): EventJ
     exceptionType,
     exceptionValue,
     fingerprintVersion: 1,
-    sdkFingerprint: input.fingerprint ?? null,
+    sdkFingerprint: flattenFingerprint(input.fingerprint),
     traceId: input.trace_id ?? null,
     spanId: input.span_id ?? null,
   };
@@ -136,11 +148,31 @@ function normalizeLegacy(input: LegacyValidatedEvent, projectId: string): EventJ
  * Normalize an enriched v2 event into EventJobData.
  */
 function normalizeEnriched(input: EnrichedValidatedEvent, projectId: string): EventJobData {
-  const exceptionType = input.exception.type;
-  const exceptionValue = input.exception.value;
+  // Synthesize exception type/value when the SDK only sent a message
+  // (e.g. captureMessage / Logger handler events).
+  let exceptionType: string;
+  let exceptionValue: string;
+
+  if (input.exception) {
+    exceptionType = input.exception.type;
+    exceptionValue = input.exception.value;
+  } else if (input.message) {
+    const match = EXCEPTION_TYPE_RE.exec(input.message);
+    if (match) {
+      exceptionType = match[1];
+      exceptionValue = input.message.slice(match[0].length).trim();
+    } else {
+      // Map level → synthetic exception type so the dashboard groups by severity
+      exceptionType = (input.level ?? "info").toUpperCase();
+      exceptionValue = input.message;
+    }
+  } else {
+    exceptionType = "Unknown";
+    exceptionValue = "(no message)";
+  }
 
   // Reconstruct message for backward compat
-  const message = `${exceptionType}: ${exceptionValue}`;
+  const message = input.message ?? `${exceptionType}: ${exceptionValue}`;
 
   // Extract file/line from first in_app frame if not provided directly
   let file = input.file;
@@ -191,7 +223,7 @@ function normalizeEnriched(input: EnrichedValidatedEvent, projectId: string): Ev
     sdk: input.sdk,
     frames: input.frames,
     fingerprintVersion: 2,
-    sdkFingerprint: input.fingerprint ?? null,
+    sdkFingerprint: flattenFingerprint(input.fingerprint),
     traceId: input.trace_id ?? null,
     spanId: input.span_id ?? null,
   };

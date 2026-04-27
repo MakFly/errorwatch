@@ -64,12 +64,18 @@ const legacyEventSchema = z.object({
 });
 
 // Enriched v2 schema — structured exception + optional rich context
+// Note: exception is optional — SDKs may emit message-only events
+// (e.g. Logger handlers calling captureMessage) through this schema too.
 const enrichedEventSchema = z.object({
-  // Required for v2
+  // Optional: present for captureException, absent for captureMessage
   exception: z.object({
     type: z.string().min(1).max(500),
-    value: z.string().min(1).max(10000),
-  }),
+    value: z.string().max(10000),
+  }).optional(),
+  // Free-form message (used when no exception is attached)
+  message: z.string().max(10000).optional(),
+  // SDK-generated event identifier (passthrough, not stored)
+  event_id: z.string().max(64).optional(),
   // Stack can come from frames instead
   file: z.string().max(1000).optional(),
   line: z.number().int().positive().optional(),
@@ -117,8 +123,11 @@ const enrichedEventSchema = z.object({
   session_id: z.string().max(100).optional(),
   release: z.string().max(200).optional().nullable(),
   user_id: z.string().max(200).optional().nullable(),
-  // SDK-supplied explicit fingerprint (overrides auto-grouping)
-  fingerprint: z.string().max(128).optional().nullable(),
+  // SDK-supplied explicit fingerprint (string or array of fragments)
+  fingerprint: z.union([
+    z.string().max(128),
+    z.array(z.string().max(128)).max(10),
+  ]).optional().nullable(),
   // Distributed tracing correlation (W3C traceparent)
   trace_id: z.string().max(64).optional().nullable(),
   span_id: z.string().max(32).optional().nullable(),
@@ -132,7 +141,29 @@ export const submit = async (c: Context<AppEnv>) => {
   try {
     // Parse raw body and detect format before Zod validation
     const rawBody = await c.req.json();
-    const isEnriched = rawBody?.exception != null && typeof rawBody.exception === "object";
+
+    // Map v2 alias keys onto canonical names so downstream code stays uniform.
+    // SDKs (e.g. errorwatch-php) send `environment`/`timestamp`; the schema
+    // expects `env`/`created_at`. Done in-place before format detection.
+    if (rawBody && typeof rawBody === "object") {
+      if (rawBody.environment != null && rawBody.env == null) {
+        rawBody.env = rawBody.environment;
+      }
+      if (rawBody.timestamp != null && rawBody.created_at == null) {
+        rawBody.created_at = rawBody.timestamp;
+      }
+    }
+
+    // v2 markers: structured exception, v2 SDK metadata, ISO timestamp,
+    // structured frames, or rich context fields. The legacy v1 schema is
+    // reserved for clients that send the strict {message,file,line,stack}
+    // shape with numeric epoch breadcrumb timestamps.
+    const isEnriched =
+      (rawBody?.exception != null && typeof rawBody.exception === "object") ||
+      (typeof rawBody?.sdk?.name === "string") ||
+      Array.isArray(rawBody?.frames) ||
+      typeof rawBody?.event_id === "string" ||
+      (typeof rawBody?.timestamp === "string");
 
     // Validate against the appropriate schema
     const validated = isEnriched
