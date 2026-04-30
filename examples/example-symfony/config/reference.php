@@ -1146,6 +1146,9 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         capture_context?: bool|Param, // Include Monolog context in payload // Default: true
  *         capture_extra?: bool|Param, // Include Monolog extra data in payload // Default: true
  *     },
+ *     profiler?: array{ // Capture a full request profile (queries, cache, mail, http, jobs, memory, …) and attach it to every captured exception.
+ *         enabled?: scalar|Param|null, // Off by default. Accepts bool or an env var placeholder (e.g. %env(bool:ERRORWATCH_PROFILER)%). // Default: false
+ *     },
  *     logs?: array{
  *         enabled?: bool|Param, // Enable live log streaming to /api/v1/logs // Default: true
  *         level?: "debug"|"info"|"notice"|"warning"|"error"|"critical"|"alert"|"emergency"|Param, // Default: "debug"

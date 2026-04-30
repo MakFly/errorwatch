@@ -1278,6 +1278,32 @@
       "last30days": "30 derniers jours",
       "events": "événements"
     },
+    "summaryStrip": {
+      "occurrences": "Occurrences",
+      "method": "Méthode HTTP",
+      "lastSeen": "Dernière occurrence",
+      "last30days": "30 derniers jours"
+    },
+    "noProfilerTitle": "Aucune donnée de profiler capturée pour cet événement.",
+    "noProfilerHint": "Active <code>ERRORWATCH_PROFILER=1</code> dans l'environnement du SDK puis déclenche une nouvelle exception pour enregistrer un profil complet.",
+    "debug": {
+      "empty": "Aucune donnée de profiler n'a été capturée pour cet événement.",
+      "tabs": {
+        "request": "Requête",
+        "route": "Route",
+        "queries": "Requêtes SQL",
+        "cache": "Cache",
+        "mail": "E-mails",
+        "events": "Événements",
+        "views": "Vues",
+        "gates": "Gates",
+        "http_client": "Client HTTP",
+        "logs": "Journaux",
+        "jobs": "Jobs",
+        "memory": "Mémoire",
+        "timing": "Temps"
+      }
+    },
     "eventLog": {
       "title": "Journal des événements",
       "total": "{count} au total",

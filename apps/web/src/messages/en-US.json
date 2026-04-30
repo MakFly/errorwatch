@@ -1096,6 +1096,32 @@
       "last30days": "Last 30 days",
       "events": "events"
     },
+    "summaryStrip": {
+      "occurrences": "Occurrences",
+      "method": "HTTP method",
+      "lastSeen": "Last seen",
+      "last30days": "Last 30 days"
+    },
+    "noProfilerTitle": "No profiler data was captured for this event.",
+    "noProfilerHint": "Enable <code>ERRORWATCH_PROFILER=1</code> in the SDK environment and trigger a fresh exception to record a full request profile.",
+    "debug": {
+      "empty": "No profiler data was captured for this event.",
+      "tabs": {
+        "request": "Request",
+        "route": "Route",
+        "queries": "Queries",
+        "cache": "Cache",
+        "mail": "Mail",
+        "events": "Events",
+        "views": "Views",
+        "gates": "Gates",
+        "http_client": "HTTP Client",
+        "logs": "Logs",
+        "jobs": "Jobs",
+        "memory": "Memory",
+        "timing": "Timing"
+      }
+    },
     "eventLog": {
       "title": "Event Log",
       "total": "{count} total",

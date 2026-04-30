@@ -1,29 +1,21 @@
 "use client";
 
-import { useState, useMemo, useEffect, type ReactNode } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCurrentOrganization } from "@/contexts/OrganizationContext";
 import { useCurrentProject } from "@/contexts/ProjectContext";
 import { useGroup, useGroupEvents, useGroupTimeline } from "@/lib/trpc/hooks";
-import { trpc } from "@/lib/trpc/client";
 import {
   AlertTriangle,
   ArrowLeft,
-  ChevronDown,
   Check,
   Copy,
-  ChevronLeft,
-  ChevronRight,
-  Terminal,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ErrorLevel } from "@/server/api";
 
-import { EventTimeline, StackTraceViewer, ContextCards } from "@/components/issue-detail";
 import { DebugProfilePanel } from "@/components/issue-detail/DebugProfilePanel";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -105,346 +97,6 @@ function Sparkline({ data }: { data: number[] }) {
   );
 }
 
-// ─── Section primitive (Sentry-style collapsible card) ───────────────────────
-
-function Section({
-  title,
-  count,
-  badge,
-  defaultOpen = true,
-  anchor,
-  children,
-}: {
-  title: string;
-  count?: number;
-  badge?: ReactNode;
-  defaultOpen?: boolean;
-  /** HTML id used as a fragment anchor target (e.g. "stack", "breadcrumbs"). When the URL hash matches, the section auto-opens and scrolls into view. */
-  anchor?: string;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  // Hash-driven auto-open + scroll into view (e.g. /issues/<fp>#breadcrumbs).
-  useEffect(() => {
-    if (!anchor) return;
-    const apply = () => {
-      if (typeof window === "undefined") return;
-      const hash = window.location.hash.replace(/^#/, "");
-      if (hash && hash === anchor) {
-        setOpen(true);
-        // Defer to next tick so the collapsible content has expanded.
-        requestAnimationFrame(() => {
-          document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      }
-    };
-    apply();
-    window.addEventListener("hashchange", apply);
-    return () => window.removeEventListener("hashchange", apply);
-  }, [anchor]);
-
-  return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      id={anchor}
-      className="border-b border-dashboard-border scroll-mt-24"
-    >
-      <CollapsibleTrigger className="flex w-full items-center gap-2 px-6 py-3 text-left transition-colors hover:bg-muted/20 md:px-8">
-        {open ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-        )}
-        <span className="font-mono text-sm font-semibold uppercase tracking-wider text-foreground">{title}</span>
-        {count !== undefined && (
-          <span className="rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
-            {count}
-          </span>
-        )}
-        {badge && <span className="ml-2">{badge}</span>}
-      </CollapsibleTrigger>
-      <CollapsibleContent>{children}</CollapsibleContent>
-    </Collapsible>
-  );
-}
-
-// ─── Event Highlights (promoted tags / context) ──────────────────────────────
-
-function EventHighlights({
-  event,
-}: {
-  event: {
-    tags?: Record<string, string> | null;
-    userContext?: { id?: string; email?: string; username?: string; ip_address?: string } | null;
-    release?: string | null;
-    env?: string;
-    platform?: string | null;
-    serverName?: string | null;
-  };
-}) {
-  const chips: { label: string; value: string }[] = [];
-  if (event.env) chips.push({ label: "env", value: event.env });
-  if (event.release) chips.push({ label: "release", value: event.release });
-  if (event.platform) chips.push({ label: "platform", value: event.platform });
-  if (event.serverName) chips.push({ label: "server", value: event.serverName });
-  if (event.userContext?.id) chips.push({ label: "user.id", value: event.userContext.id });
-  if (event.userContext?.email) chips.push({ label: "user.email", value: event.userContext.email });
-  if (event.tags) {
-    for (const [k, v] of Object.entries(event.tags).slice(0, 6)) {
-      chips.push({ label: k, value: String(v) });
-    }
-  }
-  if (chips.length === 0) {
-    return <p className="px-6 py-3 text-xs text-muted-foreground md:px-8">No tags or user context on this event.</p>;
-  }
-  return (
-    <div className="flex flex-wrap gap-2 px-6 pb-4 pt-1 md:px-8">
-      {chips.map((c) => (
-        <span
-          key={`${c.label}-${c.value}`}
-          className="inline-flex items-center gap-1.5 rounded-md border border-dashboard-border bg-muted/30 px-2 py-1 font-mono text-[11px]"
-        >
-          <span className="text-muted-foreground">{c.label}</span>
-          <span className="text-muted-foreground/40">=</span>
-          <span className="font-medium text-foreground">{c.value}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function RelatedLogs({
-  logs,
-}: {
-  logs: Array<{
-    id: string;
-    level: string;
-    channel: string;
-    message: string;
-    traceId?: string | null;
-    spanId?: string | null;
-    createdAt: string | Date;
-  }>;
-}) {
-  if (logs.length === 0) {
-    return <p className="px-6 py-3 text-xs text-muted-foreground md:px-8">No logs share this issue trace.</p>;
-  }
-
-  return (
-    <div className="divide-y divide-dashboard-border/60">
-      {logs.map((log) => (
-        <div key={log.id} className="px-6 py-3 md:px-8">
-          <div className="mb-1.5 flex flex-wrap items-center gap-2 font-mono text-[11px]">
-            <span className={cn("font-bold uppercase", levelColor[log.level as ErrorLevel] ?? "text-muted-foreground")}>
-              {log.level}
-            </span>
-            <span className="rounded border border-dashboard-border bg-muted/30 px-1.5 py-0.5 text-muted-foreground">
-              {log.channel}
-            </span>
-            <span className="text-muted-foreground">{formatRel(log.createdAt)}</span>
-            {log.traceId && (
-              <code className="min-w-0 truncate text-muted-foreground/70">
-                trace {log.traceId.slice(0, 12)}
-                {log.spanId ? ` · span ${log.spanId.slice(0, 8)}` : ""}
-              </code>
-            )}
-          </div>
-          <div className="flex min-w-0 items-start gap-2">
-            <Terminal className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <p className="break-words font-mono text-sm leading-6 text-foreground">{log.message}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EvidencePanel({
-  group,
-  selectedEvent,
-  logs,
-}: {
-  group: {
-    title?: string;
-    message: string;
-    exceptionType?: string | null;
-    exceptionValue?: string | null;
-    file: string;
-    line: number;
-  };
-  selectedEvent: {
-    traceId?: string | null;
-    spanId?: string | null;
-    request?: { url?: string; method?: string } | null;
-  } | null;
-  logs: Array<{
-    id: string;
-    level: string;
-    channel: string;
-    message: string;
-    traceId?: string | null;
-    spanId?: string | null;
-    createdAt: string | Date;
-  }>;
-}) {
-  const primaryLog = logs.find((log) => log.level === "error") ?? logs[0] ?? null;
-  const displayTitle = group.title || [group.exceptionType, group.exceptionValue].filter(Boolean).join(": ") || group.message;
-  const request = selectedEvent?.request;
-
-  return (
-    <section className="border-b border-dashboard-border bg-background">
-      <div className="grid grid-cols-1 gap-px bg-dashboard-border lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="bg-background px-6 py-5 md:px-8">
-          <div className="mb-3 flex flex-wrap items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <span>Primary Evidence</span>
-            {primaryLog && (
-              <>
-                <span className="text-muted-foreground/40">/</span>
-                <span className={levelColor[primaryLog.level as ErrorLevel] ?? "text-muted-foreground"}>
-                  {primaryLog.level}
-                </span>
-                <span className="text-muted-foreground">{primaryLog.channel}</span>
-              </>
-            )}
-          </div>
-
-          {primaryLog ? (
-            <div className="rounded-md border border-dashboard-border bg-muted/20 p-4">
-              <p className="break-words font-mono text-base leading-7 text-foreground">{primaryLog.message}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
-                <span>{formatRel(primaryLog.createdAt)}</span>
-                {primaryLog.traceId && <code>trace {primaryLog.traceId}</code>}
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-md border border-dashboard-border bg-muted/20 p-4">
-              <p className="break-words font-mono text-base leading-7 text-foreground">{displayTitle}</p>
-              <p className="mt-2 text-sm text-muted-foreground">No correlated log found for this trace.</p>
-            </div>
-          )}
-
-          <div className="mt-4 flex min-w-0 items-center gap-2">
-            <code className="min-w-0 break-all font-mono text-sm">
-              <span className="text-signal-info">{group.file}</span>
-              <span className="text-muted-foreground/60">:</span>
-              <span className="text-signal-warning">{group.line}</span>
-            </code>
-            <CopyInline text={`${group.file}:${group.line}`} />
-          </div>
-        </div>
-
-        <div className="bg-background px-6 py-5 md:px-8">
-          <div className="space-y-4">
-            <div>
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Exception
-              </div>
-              <div className="mt-1 break-words font-mono text-sm text-foreground">{displayTitle}</div>
-            </div>
-            {request?.url && (
-              <div>
-                <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Request
-                </div>
-                <div className="mt-1 break-all font-mono text-sm text-foreground">
-                  {request.method && <span className="mr-2 font-bold text-signal-ok">{request.method}</span>}
-                  {request.url}
-                </div>
-              </div>
-            )}
-            {selectedEvent?.traceId && (
-              <div>
-                <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Trace
-                </div>
-                <code className="mt-1 block break-all font-mono text-sm text-foreground">
-                  {selectedEvent.traceId}
-                  {selectedEvent.spanId && <span className="text-muted-foreground"> / {selectedEvent.spanId}</span>}
-                </code>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Right sidebar (metadata) ────────────────────────────────────────────────
-
-function MetadataSidebar({
-  group,
-  selectedEvent,
-  timelineData,
-  releases,
-}: {
-  group: {
-    count: number;
-    firstSeen: string | Date;
-    lastSeen: string | Date;
-    statusCode?: number | null;
-  };
-  selectedEvent: {
-    env?: string;
-    release?: string | null;
-    platform?: string | null;
-    userContext?: { id?: string } | null;
-  } | null;
-  timelineData: { date: string; count: number }[];
-  releases?: { version: string; count: number; percentage: number }[];
-}) {
-  const tOcc = useTranslations("issueDetail.occurrenceChart");
-  return (
-    <aside className="flex flex-col gap-px bg-dashboard-border">
-      <SidebarStat label={tOcc("occurrences")} value={group.count.toLocaleString()} mono />
-      <SidebarStat label={tOcc("firstSeen")} value={formatRel(group.firstSeen)} />
-      <SidebarStat label={tOcc("lastSeen")} value={formatRel(group.lastSeen)} />
-      {selectedEvent?.env && <SidebarStat label="Environment" value={selectedEvent.env} />}
-      {selectedEvent?.release && <SidebarStat label="Release" value={selectedEvent.release} mono />}
-      {selectedEvent?.platform && <SidebarStat label="Platform" value={selectedEvent.platform} />}
-
-      <div className="bg-background px-5 py-4">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {tOcc("last30days")}
-        </div>
-        <div className="mt-2">
-          <Sparkline data={timelineData.map((p) => p.count)} />
-        </div>
-      </div>
-
-      {releases && releases.length > 0 && (
-        <div className="bg-background px-5 py-4">
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Releases · {releases.length}
-          </div>
-          <ul className="space-y-1.5">
-            {releases.slice(0, 5).map((r) => (
-              <li key={r.version} className="flex items-center justify-between font-mono text-xs">
-                <span className="truncate text-foreground">{r.version}</span>
-                <span className="ml-2 shrink-0 text-muted-foreground">
-                  {r.count}
-                  <span className="ml-1 text-muted-foreground/60">·</span>
-                  <span className="ml-1">{r.percentage}%</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </aside>
-  );
-}
-
-function SidebarStat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="bg-background px-5 py-3">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn("mt-0.5 text-base text-foreground", mono ? "font-mono tabular-nums" : "")}>{value}</div>
-    </div>
-  );
-}
 
 // ─── Error state ─────────────────────────────────────────────────────────────
 
@@ -489,18 +141,14 @@ export default function IssueDetailPage() {
   const { currentProjectSlug } = useCurrentProject();
   const tHeader = useTranslations("issueDetail.header");
   const tSeverity = useTranslations("issues.severity");
+  const tDetail = useTranslations("issueDetail");
 
   const { data: group, isLoading, error } = useGroup(fingerprint);
   const { data: eventsData } = useGroupEvents(fingerprint, 1, 50);
   // Initial selection comes from `?event=<id>` (deep-link from the Issues list signals strip).
   const initialEventId = searchParams?.get("event") ?? null;
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(initialEventId);
+  const [selectedEventId] = useState<string | null>(initialEventId);
   const { data: timeline } = useGroupTimeline(fingerprint);
-  const { data: releasesData } = trpc.groups.getReleases.useQuery({ fingerprint }, { enabled: !!fingerprint });
-  const { data: correlatedData } = trpc.groups.getCorrelatedSignals.useQuery(
-    { fingerprint },
-    { enabled: !!fingerprint }
-  );
 
   const events = eventsData?.events || [];
   const selectedEvent = useMemo(() => {
@@ -508,11 +156,6 @@ export default function IssueDetailPage() {
     if (selectedEventId) return events.find((e) => e.id === selectedEventId) || events[0];
     return events[0];
   }, [events, selectedEventId]);
-
-  const eventIndex = useMemo(() => {
-    if (!selectedEvent) return -1;
-    return events.findIndex((e) => e.id === selectedEvent.id);
-  }, [events, selectedEvent]);
 
   if (isLoading) return null;
   if (error || !group) return <ErrorState />;
@@ -526,15 +169,6 @@ export default function IssueDetailPage() {
   const { type: exceptionType, cleanMessage } = parseExceptionType(titleSource);
   const lvlColor = levelColor[group.level as ErrorLevel];
   const lvlBg = levelBg[group.level as ErrorLevel];
-  const breadcrumbsCount = Array.isArray(selectedEvent?.breadcrumbs)
-    ? selectedEvent!.breadcrumbs.length
-    : 0;
-  const correlatedLogs = correlatedData?.logs ?? [];
-  const primaryLogId = (correlatedLogs.find((log) => log.level === "error") ?? correlatedLogs[0])?.id ?? null;
-  const secondaryLogs = primaryLogId ? correlatedLogs.filter((log) => log.id !== primaryLogId) : correlatedLogs;
-
-  const hasPrev = eventIndex > 0;
-  const hasNext = eventIndex >= 0 && eventIndex < events.length - 1;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -576,156 +210,69 @@ export default function IssueDetailPage() {
         </div>
       </header>
 
-      <EvidencePanel
-        group={{
-          title: group.title,
-          message: group.message,
-          exceptionType: group.exceptionType,
-          exceptionValue: group.exceptionValue,
-          file: group.file,
-          line: group.line,
-        }}
-        selectedEvent={
-          selectedEvent
-            ? {
-                traceId: selectedEvent.traceId,
-                spanId: selectedEvent.spanId,
-                request: selectedEvent.request ?? null,
-              }
-            : null
-        }
-        logs={correlatedLogs}
+      {/* Group summary strip (count / method / last seen / sparkline) */}
+      <GroupSummaryStrip
+        count={group.count}
+        method={selectedEvent?.request?.method ?? selectedEvent?.debug?.method ?? null}
+        lastSeen={group.lastSeen}
+        timelineData={timelineData}
       />
 
-      {events.length > 1 && (
-      <div className="border-b border-dashboard-border bg-background px-6 py-3 md:px-8">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Event</div>
-            <div className="mt-0.5 font-mono text-sm text-foreground">
-              {events.length === 0 ? (
-                "—"
-              ) : (
-                <>
-                  {eventIndex + 1} <span className="text-muted-foreground">of {events.length}</span>
-                </>
-              )}
-            </div>
-            {selectedEvent && (
-              <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                {selectedEvent.id.slice(0, 8)} · {formatRel(selectedEvent.createdAt)}
-              </div>
-            )}
+      {/* Main content: Full Debug only — full width, full height */}
+      <div className="min-h-0 flex-1 bg-background">
+        {selectedEvent?.debug ? (
+          <DebugProfilePanel profile={selectedEvent.debug} />
+        ) : (
+          <div className="flex flex-col items-center justify-center bg-background px-6 py-16 text-center md:px-8">
+            <p className="font-mono text-sm font-medium text-muted-foreground">
+              {tDetail("noProfilerTitle")}
+            </p>
+            <p className="mt-2 max-w-md text-xs text-muted-foreground/80">
+              {tDetail.rich("noProfilerHint", {
+                code: (chunks) => <code className="font-mono text-foreground">{chunks}</code>,
+              })}
+            </p>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={!hasPrev}
-              onClick={() => hasPrev && setSelectedEventId(events[eventIndex - 1].id)}
-              aria-label="Previous event"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={!hasNext}
-              onClick={() => hasNext && setSelectedEventId(events[eventIndex + 1].id)}
-              aria-label="Next event"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GroupSummaryStrip({
+  count,
+  method,
+  lastSeen,
+  timelineData,
+}: {
+  count: number;
+  method: string | null;
+  lastSeen: string | Date;
+  timelineData: { date: string; count: number }[];
+}) {
+  const tStrip = useTranslations("issueDetail.summaryStrip");
+  return (
+    <div className="grid grid-cols-2 gap-px border-b border-dashboard-border bg-dashboard-border md:grid-cols-4">
+      <SummaryStat label={tStrip("occurrences")} value={count.toLocaleString()} mono />
+      <SummaryStat label={tStrip("method")} value={method ?? "—"} mono />
+      <SummaryStat label={tStrip("lastSeen")} value={formatRel(lastSeen)} />
+      <div className="bg-background px-5 py-3">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {tStrip("last30days")}
+        </div>
+        <div className="mt-1.5">
+          <Sparkline data={timelineData.map((p) => p.count)} />
         </div>
       </div>
-      )}
+    </div>
+  );
+}
 
-      {/* Main content: stacked sections + sidebar */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0 border-r-0 border-dashboard-border lg:border-r">
-          {secondaryLogs.length > 0 && (
-            <Section title="Related Logs" anchor="logs" count={secondaryLogs.length} defaultOpen={false}>
-              <RelatedLogs logs={secondaryLogs} />
-            </Section>
-          )}
-
-          <Section title="Stack Trace" anchor="stack" defaultOpen={false}>
-            <StackTraceViewer
-              stack={selectedEvent?.stack || "No stack trace available"}
-              highlightFile={group.file}
-              highlightLine={group.line}
-            />
-          </Section>
-
-          <Section title="Breadcrumbs" anchor="breadcrumbs" count={breadcrumbsCount} defaultOpen={false}>
-            {selectedEvent && (
-              <EventTimeline
-                breadcrumbs={selectedEvent.breadcrumbs}
-                errorTimestamp={selectedEvent.createdAt}
-                errorMessage={group.message}
-                sessionId={selectedEvent.sessionId}
-                errorEventId={selectedEvent.id}
-                orgSlug={currentOrgSlug || ""}
-                projectSlug={currentProjectSlug || ""}
-              />
-            )}
-          </Section>
-
-          <Section title="Event Context" anchor="highlights" defaultOpen={false}>
-            {selectedEvent ? (
-              <EventHighlights
-                event={{
-                  tags: selectedEvent.tags ?? null,
-                  userContext: selectedEvent.userContext ?? null,
-                  release: selectedEvent.release ?? null,
-                  env: selectedEvent.env,
-                  platform: selectedEvent.platform ?? null,
-                  serverName: selectedEvent.serverName ?? null,
-                }}
-              />
-            ) : (
-              <p className="px-6 py-3 text-xs text-muted-foreground md:px-8">No event data.</p>
-            )}
-          </Section>
-
-          <Section title="Contexts" anchor="contexts" defaultOpen={false}>
-            <ContextCards
-              env={selectedEvent?.env}
-              contexts={selectedEvent?.contexts}
-              releases={releasesData?.releases}
-              firstSeenIn={releasesData?.firstSeenIn}
-            />
-          </Section>
-
-          {selectedEvent?.debug && (
-            <Section title="Full Debug" anchor="debug" defaultOpen={false}>
-              <DebugProfilePanel profile={selectedEvent.debug} />
-            </Section>
-          )}
-        </div>
-
-        <MetadataSidebar
-          group={{
-            count: group.count,
-            firstSeen: group.firstSeen,
-            lastSeen: group.lastSeen,
-            statusCode: group.statusCode,
-          }}
-          selectedEvent={
-            selectedEvent
-              ? {
-                  env: selectedEvent.env,
-                  release: selectedEvent.release ?? null,
-                  platform: selectedEvent.platform ?? null,
-                  userContext: selectedEvent.userContext ?? null,
-                }
-              : null
-          }
-          timelineData={timelineData}
-          releases={releasesData?.releases}
-        />
-      </div>
+function SummaryStat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="bg-background px-5 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={cn("mt-0.5 text-base text-foreground", mono ? "font-mono tabular-nums" : "")}>{value}</div>
     </div>
   );
 }
