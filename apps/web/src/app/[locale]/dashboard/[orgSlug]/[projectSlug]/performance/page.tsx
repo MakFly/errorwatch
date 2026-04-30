@@ -13,13 +13,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   ArrowRight,
-  Database,
   Globe,
   HardDrive,
   List,
   ListTree,
   Activity,
-  Gauge,
 } from "lucide-react";
 import type { PerformanceDateRange } from "@/server/api/types";
 
@@ -62,12 +60,6 @@ export default function PerformancePage() {
       icon: ListTree,
     },
     {
-      title: t("subPages.database.title"),
-      description: t("subPages.database.description"),
-      href: `${baseUrl}/performance/database`,
-      icon: Database,
-    },
-    {
       title: t("subPages.cache.title"),
       description: t("subPages.cache.description"),
       href: `${baseUrl}/performance/cache`,
@@ -88,12 +80,6 @@ export default function PerformancePage() {
   ];
 
   const clientSubPages = [
-    {
-      title: t("subPages.webVitals.title"),
-      description: t("subPages.webVitals.description"),
-      href: `${baseUrl}/performance/web-vitals`,
-      icon: Gauge,
-    },
     {
       title: t("subPages.transactions.title"),
       description: t("subPages.transactions.description"),

@@ -13,7 +13,6 @@ import type {
   CacheSummary,
   QueueSummary,
   EndpointDetail,
-  WebVitalsSummary,
   PerformanceDateRange,
 } from './types';
 
@@ -152,12 +151,3 @@ export const getEndpointDetail = async (
   return fetchAPI<EndpointDetail>(`/performance/endpoint-detail?${params.toString()}`);
 };
 
-export const getWebVitals = async (
-  projectId: string,
-  dateRange?: PerformanceDateRange
-): Promise<WebVitalsSummary> => {
-  const params = new URLSearchParams();
-  params.set("projectId", projectId);
-  if (dateRange) params.set("dateRange", dateRange);
-  return fetchAPI<WebVitalsSummary>(`/performance/web-vitals?${params.toString()}`);
-};

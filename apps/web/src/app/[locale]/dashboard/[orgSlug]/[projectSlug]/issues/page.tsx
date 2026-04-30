@@ -216,6 +216,7 @@ export default function IssuesPage() {
         showColumnToggle
         enableRowSelection
         pageSize={25}
+        showPagination={false}
         className="issues-grid w-full"
         getRowId={(group) => group.fingerprint}
         onRowSelectionChange={setRowSelection}

@@ -37,12 +37,9 @@
     "overview": "Vue d'ensemble",
     "requests": "Requêtes HTTP",
     "transactions": "Transactions",
-    "database": "Base de données",
-    "databaseQueries": "Requêtes BDD",
     "cache": "Cache",
     "http": "Appels HTTP",
     "queues": "Files d'attente",
-    "webVitals": "Web Vitals",
     "settings": "Paramètres",
     "help": "Aide",
     "admin": "Admin",
@@ -258,14 +255,6 @@
         "title": "Transactions",
         "description": "Toutes les transactions, groupées ou individuelles, avec filtres et pagination."
       },
-      "database": {
-        "title": "Base de données",
-        "description": "Requêtes dupliquées (N+1), requêtes lentes et motifs fréquents."
-      },
-      "databaseQueries": {
-        "title": "Requêtes BDD",
-        "description": "Requêtes dupliquées (N+1), requêtes lentes et analyse d'impact par endpoint."
-      },
       "cache": {
         "title": "Cache",
         "description": "Opérations de cache groupées par op avec taux de hit et latence."
@@ -277,10 +266,6 @@
       "queues": {
         "title": "Files d'attente",
         "description": "Jobs en arrière-plan et consommateurs de bus de messages (Messenger, Laravel Queue)."
-      },
-      "webVitals": {
-        "title": "Web Vitals",
-        "description": "Core Web Vitals (LCP, CLS, INP) au p75 avec seuils d'évaluation."
       }
     },
     "requests": {

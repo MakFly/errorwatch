@@ -219,18 +219,3 @@ export interface EndpointDetail {
   recentTransactions: EndpointRecentTransaction[];
 }
 
-// Core Web Vitals
-export type WebVitalRating = "good" | "needs-improvement" | "poor" | "unknown";
-
-export interface WebVitalMetric {
-  name: string;
-  count: number;
-  p75: number;
-  p95: number;
-  rating: WebVitalRating;
-}
-
-export interface WebVitalsSummary {
-  metrics: Record<string, WebVitalMetric>;
-  totalSamples: number;
-}

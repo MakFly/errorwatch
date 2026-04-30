@@ -736,14 +736,6 @@ const performanceRouter = router({
       return api.performance.getEndpointDetail(input.projectId, input.name, input.dateRange);
     }),
 
-  getWebVitals: protectedProcedure
-    .input(z.object({
-      projectId: z.string().uuid(),
-      dateRange: z.enum(["24h", "7d", "30d", "90d", "6m", "1y"]).optional(),
-    }))
-    .query(async ({ input }) => {
-      return api.performance.getWebVitals(input.projectId, input.dateRange);
-    }),
 });
 
 /**

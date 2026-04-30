@@ -131,7 +131,6 @@ export const api = {
     getCache: performanceApi.getCache,
     getQueues: performanceApi.getQueues,
     getEndpointDetail: performanceApi.getEndpointDetail,
-    getWebVitals: performanceApi.getWebVitals,
   },
   logs: {
     tail: logsApi.tail,

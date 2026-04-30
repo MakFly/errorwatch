@@ -37,12 +37,9 @@
     "overview": "Overview",
     "requests": "Requests",
     "transactions": "Transactions",
-    "database": "Database",
-    "databaseQueries": "Database Queries",
     "cache": "Cache",
     "http": "HTTP",
     "queues": "Queues",
-    "webVitals": "Web Vitals",
     "settings": "Settings",
     "help": "Help",
     "admin": "Admin",
@@ -258,14 +255,6 @@
         "title": "Transactions",
         "description": "All transactions, grouped or individual, with filtering and pagination."
       },
-      "database": {
-        "title": "Database",
-        "description": "Duplicate queries (N+1), slowest queries, and frequent patterns."
-      },
-      "databaseQueries": {
-        "title": "Database Queries",
-        "description": "Duplicate queries (N+1), slowest queries, and endpoint impact analysis."
-      },
       "cache": {
         "title": "Cache",
         "description": "Cache operations grouped by op with hit rate and latency."
@@ -277,10 +266,6 @@
       "queues": {
         "title": "Queues",
         "description": "Background jobs and message bus consumers (Messenger, Laravel Queue)."
-      },
-      "webVitals": {
-        "title": "Web Vitals",
-        "description": "Core Web Vitals (LCP, CLS, INP) at p75 with rating thresholds."
       }
     },
     "requests": {

@@ -81,6 +81,7 @@ export interface DataTableProps<TData, TValue> {
   showSearch?: boolean
   enableRowSelection?: boolean
   pageSize?: number
+  showPagination?: boolean
   className?: string
   getRowId?: (row: TData, index: number) => string
   emptyMessage?: string
@@ -168,6 +169,7 @@ export function DataTable<TData, TValue>({
   showSearch = true,
   enableRowSelection = true,
   pageSize = 15,
+  showPagination = true,
   className,
   getRowId,
   emptyMessage = "No results found.",
@@ -462,6 +464,7 @@ export function DataTable<TData, TValue>({
           </Table>
         </div>
 
+        {showPagination && (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-4">
           {enableRowSelection && (
             <div className="hidden flex-1 text-sm text-muted-foreground sm:flex">
@@ -552,6 +555,7 @@ export function DataTable<TData, TValue>({
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   )
