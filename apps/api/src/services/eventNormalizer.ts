@@ -203,7 +203,7 @@ function normalizeEnriched(input: EnrichedValidatedEvent, projectId: string): Ev
     line: line ?? 0,
     stack: stack ?? "",
     env: input.env,
-    url: input.url ?? null,
+    url: input.url ?? input.request?.url ?? null,
     level: input.level,
     statusCode: input.status_code ?? null,
     breadcrumbs: input.breadcrumbs ? JSON.stringify(input.breadcrumbs) : null,
