@@ -128,7 +128,10 @@ export const GroupRepository = {
         latest_evt.evt_id,
         latest_evt.evt_trace_id,
         latest_evt.evt_top_frame,
-        latest_evt.evt_breadcrumbs_count
+        latest_evt.evt_breadcrumbs_count,
+        latest_evt.evt_url,
+        latest_evt.evt_method,
+        latest_evt.evt_status_code
       FROM error_groups
       LEFT JOIN LATERAL (
         SELECT
@@ -143,6 +146,9 @@ export const GroupRepository = {
         SELECT
           le.id          AS evt_id,
           le.trace_id    AS evt_trace_id,
+          COALESCE(le.url, NULLIF(le.request->>'url', '')) AS evt_url,
+          le.status_code AS evt_status_code,
+          NULLIF(le.request->>'method', '') AS evt_method,
           -- Pick the deepest in_app frame as the "where it threw" anchor.
           -- Sentry convention: frames are oldest→newest, so the last in_app frame is the throw site.
           CASE
@@ -188,9 +194,9 @@ export const GroupRepository = {
       title: row.title || "",
       file: row.file,
       line: row.line,
-      url: row.url,
-      httpMethod: row.http_method,
-      statusCode: row.status_code,
+      url: row.url ?? row.evt_url ?? null,
+      httpMethod: row.http_method ?? row.evt_method ?? null,
+      statusCode: row.status_code ?? row.evt_status_code ?? null,
       level: row.level,
       count: row.count,
       firstSeen: row.first_seen,
@@ -298,7 +304,10 @@ export const GroupRepository = {
         latest_evt.evt_id,
         latest_evt.evt_trace_id,
         latest_evt.evt_top_frame,
-        latest_evt.evt_breadcrumbs_count
+        latest_evt.evt_breadcrumbs_count,
+        latest_evt.evt_url,
+        latest_evt.evt_method,
+        latest_evt.evt_status_code
       FROM error_groups
       LEFT JOIN LATERAL (
         SELECT
@@ -313,6 +322,9 @@ export const GroupRepository = {
         SELECT
           le.id          AS evt_id,
           le.trace_id    AS evt_trace_id,
+          COALESCE(le.url, NULLIF(le.request->>'url', '')) AS evt_url,
+          le.status_code AS evt_status_code,
+          NULLIF(le.request->>'method', '') AS evt_method,
           -- Pick the deepest in_app frame as the "where it threw" anchor.
           -- Sentry convention: frames are oldest→newest, so the last in_app frame is the throw site.
           CASE
@@ -351,9 +363,9 @@ export const GroupRepository = {
       title: row.title || "",
       file: row.file,
       line: row.line,
-      url: row.url,
-      httpMethod: row.http_method,
-      statusCode: row.status_code,
+      url: row.url ?? row.evt_url ?? null,
+      httpMethod: row.http_method ?? row.evt_method ?? null,
+      statusCode: row.status_code ?? row.evt_status_code ?? null,
       level: row.level,
       count: row.count,
       firstSeen: row.first_seen,
