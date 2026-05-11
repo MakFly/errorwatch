@@ -75,19 +75,56 @@ export const GroupRepository = {
     }
 
     if (typeof filters?.httpStatus === "number") {
-      if (filters.httpStatus === 500) {
+      // Effective HTTP context lives across three places (matches the column
+      // renderer in apps/web/.../issues-data-table-columns.tsx):
+      //   1. error_groups.status_code / url (canonical, set at ingest)
+      //   2. latest error_events.status_code / url (request envelope)
+      //   3. latest error_events.debug->>'status_code' / 'url'
+      //      (Web Profiler payload, populated by older PHP SDKs that skip the
+      //      request field for Logger-captured events)
+      // The filter must inspect the same fallback chain or it desynchronises
+      // from what the user actually sees in the HTTP column.
+      const httpStatus = filters.httpStatus;
+      const effectiveStatusMatches = sql`
+        COALESCE(
+          ${errorGroups.statusCode},
+          (
+            SELECT COALESCE(le.status_code, NULLIF(le.debug->>'status_code', '')::int)
+            FROM error_events le
+            WHERE le.fingerprint = ${errorGroups.fingerprint}
+            ORDER BY le.created_at DESC
+            LIMIT 1
+          )
+        ) = ${httpStatus}
+      `;
+
+      if (httpStatus === 500) {
+        // Treat 5xx fatal/error events without an explicit status_code as 500
+        // when at least one captured URL looks like an HTTP request.
+        const hasHttpUrl = sql`
+          COALESCE(
+            ${errorGroups.url},
+            (
+              SELECT COALESCE(le.url, NULLIF(le.request->>'url', ''), NULLIF(le.debug->>'url', ''))
+              FROM error_events le
+              WHERE le.fingerprint = ${errorGroups.fingerprint}
+              ORDER BY le.created_at DESC
+              LIMIT 1
+            )
+          ) ~* '^https?://'
+        `;
         conditions.push(
           or(
-            eq(errorGroups.statusCode, filters.httpStatus),
+            effectiveStatusMatches,
             and(
               sql`${errorGroups.statusCode} IS NULL`,
               inArray(errorGroups.level, ["fatal", "error"]),
-              sql`${errorGroups.url} ~* '^https?://'`
+              hasHttpUrl
             )
           )
         );
       } else {
-        conditions.push(eq(errorGroups.statusCode, filters.httpStatus));
+        conditions.push(effectiveStatusMatches);
       }
     }
 
