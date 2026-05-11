@@ -146,9 +146,9 @@ export const GroupRepository = {
         SELECT
           le.id          AS evt_id,
           le.trace_id    AS evt_trace_id,
-          COALESCE(le.url, NULLIF(le.request->>'url', '')) AS evt_url,
-          le.status_code AS evt_status_code,
-          NULLIF(le.request->>'method', '') AS evt_method,
+          COALESCE(le.url, NULLIF(le.request->>'url', ''), NULLIF(le.debug->>'url', '')) AS evt_url,
+          COALESCE(le.status_code, NULLIF(le.debug->>'status_code', '')::int) AS evt_status_code,
+          COALESCE(NULLIF(le.request->>'method', ''), NULLIF(le.debug->>'method', '')) AS evt_method,
           -- Pick the deepest in_app frame as the "where it threw" anchor.
           -- Sentry convention: frames are oldest→newest, so the last in_app frame is the throw site.
           CASE
@@ -322,9 +322,9 @@ export const GroupRepository = {
         SELECT
           le.id          AS evt_id,
           le.trace_id    AS evt_trace_id,
-          COALESCE(le.url, NULLIF(le.request->>'url', '')) AS evt_url,
-          le.status_code AS evt_status_code,
-          NULLIF(le.request->>'method', '') AS evt_method,
+          COALESCE(le.url, NULLIF(le.request->>'url', ''), NULLIF(le.debug->>'url', '')) AS evt_url,
+          COALESCE(le.status_code, NULLIF(le.debug->>'status_code', '')::int) AS evt_status_code,
+          COALESCE(NULLIF(le.request->>'method', ''), NULLIF(le.debug->>'method', '')) AS evt_method,
           -- Pick the deepest in_app frame as the "where it threw" anchor.
           -- Sentry convention: frames are oldest→newest, so the last in_app frame is the throw site.
           CASE

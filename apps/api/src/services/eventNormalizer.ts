@@ -196,6 +196,14 @@ function normalizeEnriched(input: EnrichedValidatedEvent, projectId: string): Ev
       .join("\n");
   }
 
+  // Fallback chain for HTTP context: top-level → request → profile (RequestProfile / Web Profiler).
+  // PHP SDK Logger / deprecation handlers don't populate `request`, but the Web Profiler payload
+  // (`profile`) always has the resolved URL/method/status when capture happens during an HTTP request.
+  const profile = input.profile as { url?: unknown; method?: unknown; status_code?: unknown } | null | undefined;
+  const profileUrl = typeof profile?.url === "string" ? profile.url : null;
+  const profileMethod = typeof profile?.method === "string" ? profile.method : null;
+  const profileStatus = typeof profile?.status_code === "number" ? profile.status_code : null;
+
   return {
     projectId,
     message,
@@ -203,9 +211,9 @@ function normalizeEnriched(input: EnrichedValidatedEvent, projectId: string): Ev
     line: line ?? 0,
     stack: stack ?? "",
     env: input.env,
-    url: input.url ?? input.request?.url ?? null,
+    url: input.url ?? input.request?.url ?? profileUrl ?? null,
     level: input.level,
-    statusCode: input.status_code ?? null,
+    statusCode: input.status_code ?? profileStatus ?? null,
     breadcrumbs: input.breadcrumbs ? JSON.stringify(input.breadcrumbs) : null,
     sessionId: input.session_id ?? null,
     createdAt: normalizeTimestamp(input.created_at),
@@ -219,7 +227,11 @@ function normalizeEnriched(input: EnrichedValidatedEvent, projectId: string): Ev
     tags: input.tags,
     extra: input.extra,
     userContext: input.user,
-    request: input.request,
+    request:
+      input.request ??
+      (profileUrl || profileMethod
+        ? { url: profileUrl ?? undefined, method: profileMethod ?? undefined }
+        : undefined),
     contexts: input.contexts,
     sdk: input.sdk,
     frames: input.frames,
