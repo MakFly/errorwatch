@@ -14,6 +14,8 @@ interface GroupsFilter {
   level?: "fatal" | "error" | "warning" | "info" | "debug";
   levels?: string[];
   httpStatus?: number;
+  // Defaults to 'unresolved' server-side when omitted.
+  status?: "unresolved" | "resolved" | "all";
   sort?: "lastSeen" | "firstSeen" | "count";
   page?: number;
   limit?: number;
@@ -43,6 +45,18 @@ export const useMergeGroups = () => {
 
 export const useUnmergeGroup = () => {
   return trpc.groups.unmerge.useMutation();
+};
+
+// Resolve / reopen an issue. Invalidates the list query so the toggled issue
+// disappears from (or returns to) the default unresolved view.
+export const useUpdateGroupStatus = () => {
+  const utils = trpc.useUtils();
+  return trpc.groups.updateStatus.useMutation({
+    onSuccess: (_data, vars) => {
+      utils.groups.getAll.invalidate();
+      utils.groups.getById.invalidate({ fingerprint: vars.fingerprint });
+    },
+  });
 };
 
 export const useGroup = (fingerprint: string) => {

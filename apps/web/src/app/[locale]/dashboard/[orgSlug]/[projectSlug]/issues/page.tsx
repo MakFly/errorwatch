@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 
 type DateRange = "24h" | "7d" | "30d" | "90d" | "all";
+type StatusFilter = "unresolved" | "resolved" | "all";
 
 interface FiltersState {
   env: string;
@@ -36,6 +37,7 @@ interface FiltersState {
   search: string;
   level: string;
   httpStatus: string;
+  status: StatusFilter;
 }
 
 export default function IssuesPage() {
@@ -52,6 +54,7 @@ export default function IssuesPage() {
     search: "",
     level: "actionable",
     httpStatus: "",
+    status: "unresolved",
   });
   const [page, setPage] = useState(1);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -82,6 +85,9 @@ export default function IssuesPage() {
     page,
     limit: 25,
     httpStatus,
+    // 'unresolved' is the API default, but we pass it explicitly so the
+    // hasActiveFilters comparison below doesn't need a magic value.
+    status: filters.status,
     ...levelFilter,
   });
 
@@ -104,7 +110,8 @@ export default function IssuesPage() {
     filters.dateRange !== "all" ||
     filters.search !== "" ||
     filters.level !== "actionable" ||
-    filters.httpStatus !== "";
+    filters.httpStatus !== "" ||
+    filters.status !== "unresolved";
 
   const handleClearFilters = () => {
     setFilters({
@@ -113,6 +120,7 @@ export default function IssuesPage() {
       search: "",
       level: "actionable",
       httpStatus: "",
+      status: "unresolved",
     });
     setPage(1);
   };
@@ -182,6 +190,8 @@ export default function IssuesPage() {
           onLevelChange={(value) => { setFilters({ ...filters, level: value }); setPage(1); }}
           httpStatus={filters.httpStatus}
           onHttpStatusChange={(value) => { setFilters({ ...filters, httpStatus: value }); setPage(1); }}
+          status={filters.status}
+          onStatusChange={(value) => { setFilters({ ...filters, status: value }); setPage(1); }}
           onClear={handleClearFilters}
           hasActiveFilters={hasActiveFilters}
           className="flex-1"

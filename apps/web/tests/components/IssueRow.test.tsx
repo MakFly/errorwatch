@@ -63,12 +63,14 @@ describe("IssueRow", () => {
 
   test("renders the correct severity label for 'error' level", () => {
     renderWithIntl(<IssueRow {...defaultProps} level="error" />);
-    expect(screen.getByText("ERROR")).toBeInTheDocument();
+    // The component applies CSS `uppercase` for display; the DOM text is the
+    // raw translated label (`Error`, `Fatal`, …).
+    expect(screen.getByText("Error")).toBeInTheDocument();
   });
 
   test("renders the correct severity label for 'fatal' level", () => {
     renderWithIntl(<IssueRow {...defaultProps} level="fatal" />);
-    expect(screen.getByText("FATAL")).toBeInTheDocument();
+    expect(screen.getByText("Fatal")).toBeInTheDocument();
   });
 
   test("renders the event count", () => {

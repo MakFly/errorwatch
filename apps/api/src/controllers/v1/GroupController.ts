@@ -22,6 +22,15 @@ export const getAll = async (c: AuthContext) => {
   const sort = c.req.query("sort") as "lastSeen" | "firstSeen" | "count" | undefined || "lastSeen";
   const page = parseInt(c.req.query("page") || "1", 10);
   const limit = Math.min(parseInt(c.req.query("limit") || "50", 10), 100);
+  const statusRaw = c.req.query("status");
+  // Default behaviour (when omitted) is to show only unresolved issues — applied
+  // in the repository. We forward the explicit value so callers can opt into
+  // 'resolved' or 'all'. Anything else is ignored to avoid leaking unknown
+  // statuses into SQL.
+  const status =
+    statusRaw === "unresolved" || statusRaw === "resolved" || statusRaw === "all"
+      ? statusRaw
+      : undefined;
 
   if (projectId) {
     const hasAccess = await verifyProjectAccess(projectId, userId);
@@ -31,8 +40,8 @@ export const getAll = async (c: AuthContext) => {
     }
   }
 
-  logger.debug("GET /api/v1/groups", { env, dateRange, projectId, search, level, levels, httpStatus, sort, page, limit });
-  const result = await GroupService.getAll({ env, dateRange, search, level, levels, httpStatus, sort, page, limit }, projectId);
+  logger.debug("GET /api/v1/groups", { env, dateRange, projectId, search, level, levels, httpStatus, status, sort, page, limit });
+  const result = await GroupService.getAll({ env, dateRange, search, level, levels, httpStatus, status, sort, page, limit }, projectId);
   return c.json(result);
 };
 
@@ -142,6 +151,43 @@ export const updateAssignment = async (c: AuthContext) => {
   }
 
   const result = await GroupService.updateAssignment(fingerprint, assignedTo);
+  if (!result) {
+    return c.json({ error: "Group not found" }, 404);
+  }
+
+  return c.json(result);
+};
+
+export const updateStatus = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const fingerprint = c.req.param("fingerprint");
+  const body = await c.req.json().catch(() => null) as { status?: unknown } | null;
+  const status = body?.status;
+
+  if (status !== "unresolved" && status !== "resolved") {
+    return c.json({ error: "status must be 'unresolved' or 'resolved'" }, 400);
+  }
+
+  logger.info("PATCH /api/v1/groups/:fingerprint/status", { fingerprint, status, userId });
+
+  const group = await GroupService.getById(fingerprint);
+  if (!group) {
+    return c.json({ error: "Group not found" }, 404);
+  }
+
+  if (group.projectId) {
+    const hasAccess = await verifyProjectAccess(group.projectId, userId);
+    if (!hasAccess) {
+      logger.warn("User attempted to change status without project permission", {
+        userId,
+        fingerprint,
+        projectId: group.projectId,
+      });
+      return c.json({ error: "Forbidden: You don't have access to this project" }, 403);
+    }
+  }
+
+  const result = await GroupService.updateStatus(fingerprint, status, userId);
   if (!result) {
     return c.json({ error: "Group not found" }, 404);
   }

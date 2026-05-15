@@ -17,6 +17,7 @@ export const getAll = async (filters?: GroupsFilter): Promise<GroupsResponse> =>
   if (filters?.level) params.set("level", filters.level);
   if (filters?.levels && filters.levels.length > 0) params.set("levels", filters.levels.join(","));
   if (filters?.httpStatus) params.set("httpStatus", String(filters.httpStatus));
+  if (filters?.status) params.set("status", filters.status);
   if (filters?.sort) params.set("sort", filters.sort);
   if (filters?.page) params.set("page", String(filters.page));
   if (filters?.limit) params.set("limit", String(filters.limit));
@@ -68,13 +69,6 @@ export const getCorrelatedSignals = async (fingerprint: string): Promise<Correla
   return fetchAPI<CorrelatedSignals>(`/groups/${fingerprint}/correlated`);
 };
 
-export const batchUpdateStatus = async (fingerprints: string[], status: IssueStatus): Promise<{ updated: number }> => {
-  return fetchAPI<{ updated: number }>(`/groups/batch/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ fingerprints, status }),
-  });
-};
-
 export const merge = async (parentFingerprint: string, childFingerprints: string[]): Promise<{ merged: number }> => {
   return fetchAPI<{ merged: number }>(`/groups/${parentFingerprint}/merge`, {
     method: "POST",
@@ -85,12 +79,5 @@ export const merge = async (parentFingerprint: string, childFingerprints: string
 export const unmerge = async (fingerprint: string): Promise<{ success: boolean }> => {
   return fetchAPI<{ success: boolean }>(`/groups/${fingerprint}/unmerge`, {
     method: "POST",
-  });
-};
-
-export const snooze = async (fingerprint: string, until: string): Promise<ErrorGroup> => {
-  return fetchAPI<ErrorGroup>(`/groups/${fingerprint}/snooze`, {
-    method: "PATCH",
-    body: JSON.stringify({ until }),
   });
 };

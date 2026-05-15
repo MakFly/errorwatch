@@ -5,8 +5,23 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCurrentOrganization } from "@/contexts/OrganizationContext";
 import { useCurrentProject } from "@/contexts/ProjectContext";
-import { useGroup, useGroupEvents, useGroupTimeline } from "@/lib/trpc/hooks";
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, Copy } from "lucide-react";
+import {
+  useGroup,
+  useGroupEvents,
+  useGroupTimeline,
+  useMembersByOrganization,
+  useUpdateGroupStatus,
+} from "@/lib/trpc/hooks";
+import { toast } from "sonner";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Copy,
+  RotateCcw,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { ErrorLevel } from "@/server/api";
@@ -132,17 +147,22 @@ export default function IssueDetailPage() {
   const params = useParams();
   const fingerprint = params.fingerprint as string;
   const searchParams = useSearchParams();
-  const { currentOrgSlug } = useCurrentOrganization();
+  const { currentOrgSlug, currentOrgId } = useCurrentOrganization();
   const { currentProjectSlug } = useCurrentProject();
   const tHeader = useTranslations("issueDetail.header");
   const tSeverity = useTranslations("issues.severity");
   const tDetail = useTranslations("issueDetail");
+  const tStatus = useTranslations("issueDetail.status");
 
   const { data: group, isLoading, error } = useGroup(fingerprint);
   const { data: eventsData } = useGroupEvents(fingerprint, 1, 50);
   const initialEventId = searchParams?.get("event") ?? null;
   const [selectedEventId] = useState<string | null>(initialEventId);
   const { data: timeline } = useGroupTimeline(fingerprint);
+  // Members list is used to resolve `resolvedBy` (user id) into a display name,
+  // mirroring how assignment dropdowns work elsewhere. Skipped until org id known.
+  const { data: members } = useMembersByOrganization(currentOrgId || "");
+  const updateStatus = useUpdateGroupStatus();
 
   const events = eventsData?.events || [];
   const selectedEvent = useMemo(() => {
@@ -150,6 +170,15 @@ export default function IssueDetailPage() {
     if (selectedEventId) return events.find((e) => e.id === selectedEventId) || events[0];
     return events[0];
   }, [events, selectedEventId]);
+
+  // Resolve `resolvedBy` user id into a display name. Kept above the early
+  // returns so the hook order stays stable across renders (loading → loaded).
+  const resolvedBy = group?.resolvedBy ?? null;
+  const resolverName = useMemo(() => {
+    if (!resolvedBy) return null;
+    const member = members?.find((m) => m.userId === resolvedBy);
+    return member?.user?.name || member?.user?.email || resolvedBy;
+  }, [resolvedBy, members]);
 
   if (isLoading) return null;
   if (error || !group) return <ErrorState />;
@@ -165,6 +194,18 @@ export default function IssueDetailPage() {
   const lvlChip = levelChip[group.level as ErrorLevel];
   const method = selectedEvent?.request?.method ?? selectedEvent?.debug?.method ?? null;
   const url = selectedEvent?.request?.url ?? selectedEvent?.debug?.request?.url ?? null;
+
+  const isResolved = group.status === "resolved";
+
+  const handleToggleStatus = async () => {
+    const next = isResolved ? "unresolved" : "resolved";
+    try {
+      await updateStatus.mutateAsync({ fingerprint, status: next });
+      toast.success(next === "resolved" ? tStatus("resolvedToast") : tStatus("reopenedToast"));
+    } catch {
+      toast.error(tStatus("toggleError"));
+    }
+  };
 
   return (
     <div className="flex flex-1 flex-col bg-dashboard-bg">
@@ -240,6 +281,48 @@ export default function IssueDetailPage() {
               <CopyInline text={url} />
             </div>
           )}
+
+          {/* Resolution state + CTA. When the issue is resolved we show who
+              resolved it and when — same affordance as Sentry's "Resolved by".
+              A new event from any SDK auto-reopens it (regression). */}
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleToggleStatus}
+              disabled={updateStatus.isPending}
+              className={cn(
+                "inline-flex h-9 items-center gap-2 rounded-sm border px-3 font-mono text-xs font-semibold uppercase tracking-wider transition-colors",
+                isResolved
+                  ? "border-zinc-300 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400",
+                updateStatus.isPending && "opacity-60",
+              )}
+            >
+              {isResolved ? (
+                <>
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  {tStatus("reopen")}
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {tStatus("resolve")}
+                </>
+              )}
+            </button>
+
+            {isResolved && group.resolvedAt && (
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {tStatus.rich("resolvedBy", {
+                  who: () => (
+                    <span className="font-semibold text-foreground">
+                      {resolverName ?? tStatus("unknownUser")}
+                    </span>
+                  ),
+                  when: () => <span>{formatRel(group.resolvedAt!)}</span>,
+                })}
+              </span>
+            )}
+          </div>
         </div>
       </header>
 

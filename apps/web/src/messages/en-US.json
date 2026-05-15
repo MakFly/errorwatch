@@ -1013,7 +1013,10 @@
       "levelInfo": "Info",
       "levelDebug": "Debug",
       "httpStatus": "Code",
-      "httpStatusLabel": "HTTP code"
+      "httpStatusLabel": "HTTP code",
+      "statusUnresolved": "Unresolved",
+      "statusResolved": "Resolved",
+      "statusAll": "All statuses"
     },
     "page": {
       "selected": "{count} selected",
@@ -1031,6 +1034,15 @@
     }
   },
   "issueDetail": {
+    "status": {
+      "resolve": "Resolve",
+      "reopen": "Reopen",
+      "resolvedBy": "Resolved by <who></who> · <when></when>",
+      "resolvedToast": "Issue marked as resolved",
+      "reopenedToast": "Issue reopened",
+      "toggleError": "Could not update issue status",
+      "unknownUser": "unknown user"
+    },
     "profile": {
       "backToSignalDeck": "Back to Signal Deck",
       "events": "Events",
