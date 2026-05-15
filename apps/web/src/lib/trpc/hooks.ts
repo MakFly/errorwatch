@@ -55,8 +55,15 @@ export const useUpdateGroupStatus = () => {
     onSuccess: (_data, vars) => {
       utils.groups.getAll.invalidate();
       utils.groups.getById.invalidate({ fingerprint: vars.fingerprint });
+      // Re-pull the audit timeline so the new manual transition shows up
+      // immediately under the masthead.
+      utils.groups.getStatusHistory.invalidate({ fingerprint: vars.fingerprint });
     },
   });
+};
+
+export const useGroupStatusHistory = (fingerprint: string) => {
+  return trpc.groups.getStatusHistory.useQuery({ fingerprint });
 };
 
 export const useGroup = (fingerprint: string) => {

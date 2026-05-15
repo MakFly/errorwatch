@@ -8,7 +8,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import { redisConnection } from "../connection";
 import { alertQueue, type EventJobData } from "../queues";
 import { db } from "../../db/connection";
-import { errorGroups, errorEvents, fingerprintRules, projects } from "../../db/schema";
+import { errorGroups, errorEvents, errorGroupStatusEvents, fingerprintRules, projects } from "../../db/schema";
 import logger from "../../logger";
 import { scrubPII } from "../../services/scrubber";
 import { cache, CACHE_KEYS } from "../../utils/cache";
@@ -274,6 +274,16 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
   const title = computeIssueTitle({ exceptionType, exceptionValue, message: scrubbedMessage });
   const httpMethod = request?.method ?? null;
 
+  // Snapshot prior status so we can detect a regression (resolved → unresolved
+  // triggered by the upsert below). Cheap single-row lookup; the row may not
+  // exist yet on first occurrence — we treat that as "no prior status".
+  const priorRow = await db
+    .select({ status: errorGroups.status })
+    .from(errorGroups)
+    .where(eq(errorGroups.fingerprint, fingerprint))
+    .limit(1);
+  const priorStatus = priorRow[0]?.status ?? null;
+
   // Upsert error group (atomic operation) - PostgreSQL syntax
   const result = await db
     .insert(errorGroups)
@@ -317,6 +327,20 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
     .returning({ count: errorGroups.count });
 
   const isNewGroup = result[0]?.count === 1;
+
+  // Regression audit: the upsert silently flips 'resolved' → 'unresolved' when
+  // a new event hits a resolved group. Mirror that transition into the audit
+  // log with actorUserId = NULL (system actor) and reason = 'regression'.
+  if (priorStatus === "resolved") {
+    await db.insert(errorGroupStatusEvents).values({
+      id: crypto.randomUUID(),
+      fingerprint,
+      fromStatus: "resolved",
+      toStatus: "unresolved",
+      actorUserId: null,
+      reason: "regression",
+    });
+  }
 
   // Insert event record (catch unique constraint violation for dedup)
   try {

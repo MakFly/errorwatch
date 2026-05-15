@@ -195,6 +195,52 @@ export const updateStatus = async (c: AuthContext) => {
   return c.json(result);
 };
 
+export const getStatusHistory = async (c: AuthContext) => {
+  const userId = c.get("userId");
+  const fingerprint = c.req.param("fingerprint");
+
+  const group = await GroupService.getById(fingerprint);
+  if (!group) {
+    return c.json({ error: "Group not found" }, 404);
+  }
+
+  if (group.projectId) {
+    const hasAccess = await verifyProjectAccess(group.projectId, userId);
+    if (!hasAccess) {
+      return c.json({ error: "Forbidden: You don't have access to this project" }, 403);
+    }
+  }
+
+  logger.debug("GET /api/v1/groups/:fingerprint/status-history", { fingerprint });
+  const history = await GroupRepository.getStatusHistory(fingerprint);
+
+  // Resolve actor user ids → display names in a single batched lookup so the
+  // client doesn't have to cross-reference org members for each row.
+  const actorIds = Array.from(
+    new Set(history.map((h) => h.actorUserId).filter((id): id is string => Boolean(id))),
+  );
+  const actors = actorIds.length > 0 ? await GroupService.getUsersByIds(actorIds) : [];
+  const actorMap = new Map(actors.map((u) => [u.id, u]));
+
+  return c.json(
+    history.map((row) => ({
+      id: row.id,
+      fingerprint: row.fingerprint,
+      fromStatus: row.fromStatus,
+      toStatus: row.toStatus,
+      reason: row.reason,
+      createdAt: row.createdAt,
+      actor: row.actorUserId
+        ? {
+            id: row.actorUserId,
+            name: actorMap.get(row.actorUserId)?.name ?? null,
+            email: actorMap.get(row.actorUserId)?.email ?? null,
+          }
+        : null,
+    })),
+  );
+};
+
 export const getCorrelatedSignals = async (c: AuthContext) => {
   const userId = c.get("userId");
   const fingerprint = c.req.param("fingerprint");

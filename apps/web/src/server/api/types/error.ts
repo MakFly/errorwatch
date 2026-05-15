@@ -39,6 +39,18 @@ export type ErrorGroup = {
   exceptionValue?: string;
 };
 
+// Audit row emitted on every resolve/reopen transition. `actor` is null for
+// system-driven changes (regression auto-reopen).
+export type StatusHistoryEntry = {
+  id: string;
+  fingerprint: string;
+  fromStatus: IssueStatus;
+  toStatus: IssueStatus;
+  reason: "manual" | "regression";
+  createdAt: Date;
+  actor: { id: string; name: string | null; email: string | null } | null;
+};
+
 export type ErrorEvent = {
   id: string;
   fingerprint: string;

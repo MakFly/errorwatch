@@ -54,6 +54,28 @@ export const errorGroups = pgTable("error_groups", {
   projectStatusLastSeenIdx: index("idx_error_groups_project_status_last_seen").on(table.projectId, table.status, table.lastSeen),
 }));
 
+// Audit log for issue status transitions. Each row records a single
+// resolved ↔ unresolved transition with the actor (BetterAuth userId) and
+// reason. System actors (`actorUserId = NULL` + `reason = 'regression'`)
+// represent auto-reopen triggered by the event worker on a regression.
+export const errorGroupStatusEvents = pgTable("error_group_status_events", {
+  id: text("id").primaryKey(),
+  fingerprint: text("fingerprint")
+    .notNull()
+    .references(() => errorGroups.fingerprint, { onDelete: "cascade" }),
+  fromStatus: text("from_status").notNull(), // 'unresolved' | 'resolved'
+  toStatus: text("to_status").notNull(),     // 'unresolved' | 'resolved'
+  // Loose FK (text) — set to NULL on user deletion so audit history survives.
+  actorUserId: text("actor_user_id"),
+  reason: text("reason").notNull().default("manual"), // 'manual' | 'regression'
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  fingerprintCreatedIdx: index("idx_error_group_status_events_fingerprint_created").on(
+    table.fingerprint,
+    table.createdAt,
+  ),
+}));
+
 export const errorEvents = pgTable("error_events", {
   id: text("id").primaryKey(),
   fingerprint: text("fingerprint")

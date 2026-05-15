@@ -1223,7 +1223,13 @@
       "resolvedToast": "Problème marqué comme résolu",
       "reopenedToast": "Problème rouvert",
       "toggleError": "Impossible de modifier le statut",
-      "unknownUser": "utilisateur inconnu"
+      "unknownUser": "utilisateur inconnu",
+      "historyTitle": "Historique",
+      "historyEmpty": "Aucune transition enregistrée",
+      "transitionResolved": "Marqué résolu",
+      "transitionReopened": "Rouvert",
+      "byActor": "par {who}",
+      "bySystem": "par le système (régression)"
     },
     "profile": {
       "backToSignalDeck": "Retour au tableau des signaux",

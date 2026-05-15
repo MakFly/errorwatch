@@ -1041,7 +1041,13 @@
       "resolvedToast": "Issue marked as resolved",
       "reopenedToast": "Issue reopened",
       "toggleError": "Could not update issue status",
-      "unknownUser": "unknown user"
+      "unknownUser": "unknown user",
+      "historyTitle": "History",
+      "historyEmpty": "No transitions recorded yet",
+      "transitionResolved": "Marked resolved",
+      "transitionReopened": "Reopened",
+      "byActor": "by {who}",
+      "bySystem": "by system (regression)"
     },
     "profile": {
       "backToSignalDeck": "Back to Signal Deck",

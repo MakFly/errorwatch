@@ -1,6 +1,6 @@
 import { eq, gt, desc, inArray, and, sql, ilike, or, lt } from "drizzle-orm";
 import { db } from "../db/connection";
-import { errorGroups, errorEvents } from "../db/schema";
+import { errorGroups, errorEvents, errorGroupStatusEvents } from "../db/schema";
 
 export interface CursorPaginationParams {
   cursor?: string; // Base64 encoded cursor (lastSeen timestamp + fingerprint)
@@ -475,16 +475,51 @@ export const GroupRepository = {
   // Resolve / reopen an issue. When transitioning to 'resolved' we stamp
   // who did it and when; reopening clears that attribution so the next
   // resolution carries the new actor.
-  updateStatus: (fingerprint: string, status: "unresolved" | "resolved", userId: string) =>
+  //
+  // Every transition is mirrored into `error_group_status_events` as an audit
+  // row (reason = 'manual') so the UI can render a timeline. No-op transitions
+  // (resolving an already-resolved issue) are skipped — the update returns the
+  // row unchanged and we don't pollute the history.
+  updateStatus: async (fingerprint: string, status: "unresolved" | "resolved", userId: string) => {
+    return db.transaction(async (tx) => {
+      const [prev] = await tx
+        .select({ status: errorGroups.status })
+        .from(errorGroups)
+        .where(eq(errorGroups.fingerprint, fingerprint))
+        .for("update");
+
+      const updated = await tx
+        .update(errorGroups)
+        .set({
+          status,
+          resolvedAt: status === "resolved" ? new Date() : null,
+          resolvedBy: status === "resolved" ? userId : null,
+        })
+        .where(eq(errorGroups.fingerprint, fingerprint))
+        .returning();
+
+      if (prev && prev.status !== status) {
+        await tx.insert(errorGroupStatusEvents).values({
+          id: crypto.randomUUID(),
+          fingerprint,
+          fromStatus: prev.status,
+          toStatus: status,
+          actorUserId: userId,
+          reason: "manual",
+        });
+      }
+
+      return updated;
+    });
+  },
+
+  // Audit timeline for an issue. Newest first.
+  getStatusHistory: (fingerprint: string) =>
     db
-      .update(errorGroups)
-      .set({
-        status,
-        resolvedAt: status === "resolved" ? new Date() : null,
-        resolvedBy: status === "resolved" ? userId : null,
-      })
-      .where(eq(errorGroups.fingerprint, fingerprint))
-      .returning(),
+      .select()
+      .from(errorGroupStatusEvents)
+      .where(eq(errorGroupStatusEvents.fingerprint, fingerprint))
+      .orderBy(desc(errorGroupStatusEvents.createdAt)),
 
   merge: async (parentFingerprint: string, childFingerprints: string[]) => {
     // Set mergedInto on children

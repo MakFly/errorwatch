@@ -1,5 +1,5 @@
 import { fetchAPI } from './client';
-import type { ApplicationLog, ErrorGroup, EventsResponse, IssueStatus, ReleaseDistribution, GroupsFilter } from './types';
+import type { ApplicationLog, ErrorGroup, EventsResponse, IssueStatus, ReleaseDistribution, GroupsFilter, StatusHistoryEntry } from './types';
 
 export type GroupsResponse = {
   groups: ErrorGroup[];
@@ -45,6 +45,10 @@ export const updateStatus = async (fingerprint: string, status: IssueStatus): Pr
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+};
+
+export const getStatusHistory = async (fingerprint: string): Promise<StatusHistoryEntry[]> => {
+  return fetchAPI<StatusHistoryEntry[]>(`/groups/${fingerprint}/status-history`);
 };
 
 export const updateAssignment = async (fingerprint: string, assignedTo: string | null): Promise<ErrorGroup> => {
