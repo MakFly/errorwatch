@@ -1195,7 +1195,10 @@
       "levelInfo": "Info",
       "levelDebug": "Debug",
       "httpStatus": "Code",
-      "httpStatusLabel": "Code HTTP"
+      "httpStatusLabel": "Code HTTP",
+      "statusUnresolved": "Non résolu",
+      "statusResolved": "Résolu",
+      "statusAll": "Tous les statuts"
     },
     "page": {
       "selected": "{count} sélectionné(s)",
@@ -1213,6 +1216,15 @@
     }
   },
   "issueDetail": {
+    "status": {
+      "resolve": "Résoudre",
+      "reopen": "Rouvrir",
+      "resolvedBy": "Résolu par <who></who> · <when></when>",
+      "resolvedToast": "Problème marqué comme résolu",
+      "reopenedToast": "Problème rouvert",
+      "toggleError": "Impossible de modifier le statut",
+      "unknownUser": "utilisateur inconnu"
+    },
     "profile": {
       "backToSignalDeck": "Retour au tableau des signaux",
       "events": "Événements",

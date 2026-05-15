@@ -9,6 +9,7 @@ export interface CursorPaginationParams {
   env?: string;
   search?: string;
   level?: string;
+  status?: "unresolved" | "resolved" | "all";
   sort?: "lastSeen" | "firstSeen" | "count";
 }
 
@@ -43,7 +44,7 @@ export const GroupRepository = {
    * Optimized findAll using single query with LEFT JOIN for replay data
    * Replaces 3 separate queries (groups + replayCounts + latestReplays) with 1
    */
-  findAll: async (filters?: { dateRange?: string; env?: string; search?: string; level?: string; levels?: string[]; httpStatus?: number; sort?: string; page?: number; limit?: number }, projectId?: string) => {
+  findAll: async (filters?: { dateRange?: string; env?: string; search?: string; level?: string; levels?: string[]; httpStatus?: number; status?: "unresolved" | "resolved" | "all"; sort?: string; page?: number; limit?: number }, projectId?: string) => {
     const startDate = parseDateRange(filters?.dateRange);
     const page = filters?.page || 1;
     const limit = filters?.limit || 50;
@@ -58,6 +59,14 @@ export const GroupRepository = {
 
     conditions.push(gt(errorGroups.lastSeen, startDate));
     conditions.push(sql`${errorGroups.mergedInto} IS NULL`);
+
+    // Status filter: default hides resolved issues (Sentry-style). Explicit
+    // 'all' opts out of any status filtering.
+    if (!filters?.status || filters.status === "unresolved") {
+      conditions.push(eq(errorGroups.status, "unresolved"));
+    } else if (filters.status === "resolved") {
+      conditions.push(eq(errorGroups.status, "resolved"));
+    }
 
     if (filters?.search) {
       conditions.push(
@@ -243,6 +252,9 @@ export const GroupRepository = {
       mergedInto: row.merged_into,
       exceptionType: row.exception_type,
       exceptionValue: row.exception_value,
+      status: row.status ?? "unresolved",
+      resolvedAt: row.resolved_at,
+      resolvedBy: row.resolved_by,
       hasReplay: row.has_replay,
       latestReplaySessionId: row.latest_session_id,
       latestReplayEventId: row.latest_event_id,
@@ -278,6 +290,14 @@ export const GroupRepository = {
 
     conditions.push(gt(errorGroups.lastSeen, startDate));
     conditions.push(sql`${errorGroups.mergedInto} IS NULL`);
+
+    // Same default-unresolved filter as findAll. Cursor pagination uses the same
+    // status semantics for consistency.
+    if (!filters?.status || filters.status === "unresolved") {
+      conditions.push(eq(errorGroups.status, "unresolved"));
+    } else if (filters.status === "resolved") {
+      conditions.push(eq(errorGroups.status, "resolved"));
+    }
 
     // Apply cursor filter (exclusive - start after cursor)
     const cursor = filters?.cursor ? decodeCursor(filters?.cursor) : null;
@@ -412,6 +432,9 @@ export const GroupRepository = {
       mergedInto: row.merged_into,
       exceptionType: row.exception_type,
       exceptionValue: row.exception_value,
+      status: row.status ?? "unresolved",
+      resolvedAt: row.resolved_at,
+      resolvedBy: row.resolved_by,
       hasReplay: row.has_replay,
       latestReplaySessionId: row.latest_session_id,
       latestReplayEventId: row.latest_event_id,
@@ -445,6 +468,20 @@ export const GroupRepository = {
       .set({
         assignedTo,
         assignedAt: assignedTo ? new Date() : null,
+      })
+      .where(eq(errorGroups.fingerprint, fingerprint))
+      .returning(),
+
+  // Resolve / reopen an issue. When transitioning to 'resolved' we stamp
+  // who did it and when; reopening clears that attribution so the next
+  // resolution carries the new actor.
+  updateStatus: (fingerprint: string, status: "unresolved" | "resolved", userId: string) =>
+    db
+      .update(errorGroups)
+      .set({
+        status,
+        resolvedAt: status === "resolved" ? new Date() : null,
+        resolvedBy: status === "resolved" ? userId : null,
       })
       .where(eq(errorGroups.fingerprint, fingerprint))
       .returning(),

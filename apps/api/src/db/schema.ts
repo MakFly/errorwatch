@@ -33,6 +33,14 @@ export const errorGroups = pgTable("error_groups", {
   mergedInto: text("merged_into"),
   // User impact
   usersAffected: integer("users_affected").notNull().default(0),
+  // Resolution lifecycle. 'resolved' issues are filtered out of the list by
+  // default; a new event on a resolved group auto-reopens it (regression),
+  // handled in the upsert in queue/workers/event.worker.ts.
+  status: text("status").notNull().default("unresolved"), // 'unresolved' | 'resolved'
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  // FK kept loose (text) to mirror the assignedTo convention; set to NULL when
+  // the resolver's user account is deleted so the row survives.
+  resolvedBy: text("resolved_by"),
 }, (table) => ({
   projectLastSeenIdx: index("idx_error_groups_project_last_seen").on(table.projectId, table.lastSeen),
   mergedIntoIdx: index("idx_error_groups_merged_into").on(table.mergedInto),
@@ -42,6 +50,8 @@ export const errorGroups = pgTable("error_groups", {
   messageIdx: index("idx_error_groups_message").on(table.message),
   // v2: Exception type search
   exceptionTypeIdx: index("idx_error_groups_exception_type").on(table.exceptionType),
+  // Default issues list filters on (projectId, status='unresolved') sorted by lastSeen.
+  projectStatusLastSeenIdx: index("idx_error_groups_project_status_last_seen").on(table.projectId, table.status, table.lastSeen),
 }));
 
 export const errorEvents = pgTable("error_events", {

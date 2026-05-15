@@ -74,6 +74,7 @@ const groupsRouter = router({
         level: z.enum(["fatal", "error", "warning", "info", "debug"]).optional(),
         levels: z.array(z.string()).optional(),
         httpStatus: z.number().int().min(100).max(599).optional(),
+        status: z.enum(["unresolved", "resolved", "all"]).optional(),
         sort: z.enum(["lastSeen", "firstSeen", "count"]).optional(),
         page: z.number().int().positive().optional(),
         limit: z.number().int().positive().max(100).optional(),
@@ -113,6 +114,17 @@ const groupsRouter = router({
     }))
     .mutation(async ({ input }) => {
       return api.groups.updateAssignment(input.fingerprint, input.assignedTo);
+    }),
+
+  // Resolve / reopen. The API attributes resolution to the authenticated user
+  // (BetterAuth session); no userId needed in the input.
+  updateStatus: protectedProcedure
+    .input(z.object({
+      fingerprint: z.string(),
+      status: z.enum(["unresolved", "resolved"]),
+    }))
+    .mutation(async ({ input }) => {
+      return api.groups.updateStatus(input.fingerprint, input.status);
     }),
 
   getReleases: protectedProcedure

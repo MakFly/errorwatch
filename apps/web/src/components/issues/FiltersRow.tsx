@@ -12,6 +12,7 @@ import { Hash, X, Radio } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 type DateRange = "24h" | "7d" | "30d" | "90d" | "all";
+type StatusFilter = "unresolved" | "resolved" | "all";
 
 interface FiltersRowProps {
   search: string;
@@ -24,6 +25,8 @@ interface FiltersRowProps {
   onLevelChange?: (value: string) => void;
   httpStatus?: string;
   onHttpStatusChange?: (value: string) => void;
+  status?: StatusFilter;
+  onStatusChange?: (value: StatusFilter) => void;
   onClear: () => void;
   hasActiveFilters: boolean;
   className?: string;
@@ -40,6 +43,8 @@ export function FiltersRow({
   onLevelChange,
   httpStatus,
   onHttpStatusChange,
+  status,
+  onStatusChange,
   onClear,
   hasActiveFilters,
   className,
@@ -134,6 +139,22 @@ export function FiltersRow({
             <SelectItem value="warning">{t("levelWarning")}</SelectItem>
             <SelectItem value="info">{t("levelInfo")}</SelectItem>
             <SelectItem value="debug">{t("levelDebug")}</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Status (resolved / unresolved). Defaults to 'unresolved' on the API
+          when omitted, so we surface the choice only when the page wires it
+          (keeps other consumers backward-compatible). */}
+      {onStatusChange && (
+        <Select value={status || "unresolved"} onValueChange={(v) => onStatusChange(v as StatusFilter)}>
+          <SelectTrigger className="w-full border-issues-border bg-issues-surface/50 sm:w-[150px]">
+            <SelectValue placeholder={t("statusUnresolved")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unresolved">{t("statusUnresolved")}</SelectItem>
+            <SelectItem value="resolved">{t("statusResolved")}</SelectItem>
+            <SelectItem value="all">{t("statusAll")}</SelectItem>
           </SelectContent>
         </Select>
       )}

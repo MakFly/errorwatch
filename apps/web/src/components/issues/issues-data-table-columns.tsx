@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import {
+  CheckCircle2Icon,
   ChevronDownIcon,
   ChevronUpIcon,
   FileCode2Icon,
@@ -38,6 +39,12 @@ export interface IssueGroup {
   latestTraceId?: string | null
   latestTopFrame?: { filename: string; function?: string | null } | null
   latestBreadcrumbsCount?: number
+  // Resolution state. Default list view filters out 'resolved' rows so this is
+  // typically 'unresolved' here; surfaced as a badge when the user opts into
+  // the 'resolved' / 'all' filters.
+  status?: "unresolved" | "resolved"
+  resolvedAt?: Date | string | null
+  resolvedBy?: string | null
 }
 
 interface IssuesDataTableColumnsProps {
@@ -94,6 +101,30 @@ export function createIssuesColumns({
         const bLevel = b.original.level.toLowerCase()
         return levelOrder.indexOf(aLevel) - levelOrder.indexOf(bLevel)
       },
+    },
+    {
+      // Discreet — column stays compact and only renders content for resolved
+      // issues. The default list filter hides them, so empty cells in the
+      // common case are intentional (no visual noise for unresolved rows).
+      id: "status",
+      accessorKey: "status",
+      header: () => (
+        <span className="sr-only">Status</span>
+      ),
+      cell: ({ row }) => {
+        if (row.original.status !== "resolved") return null
+        return (
+          <Badge
+            variant="outline"
+            className="gap-1 border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-500"
+          >
+            <CheckCircle2Icon className="size-3" />
+            Resolved
+          </Badge>
+        )
+      },
+      enableSorting: false,
+      size: 90,
     },
     {
       accessorKey: "message",

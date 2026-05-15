@@ -307,6 +307,11 @@ async function processEvent(job: Job<EventJobData>): Promise<{ fingerprint: stri
         // Title: backfill if currently empty (legacy rows or first event lacked exception struct).
         title: sql`CASE WHEN ${errorGroups.title} = '' THEN ${title} ELSE ${errorGroups.title} END`,
         httpMethod: sql`COALESCE(${errorGroups.httpMethod}, ${httpMethod})`,
+        // Regression: a new event on a resolved group auto-reopens it and clears
+        // the resolver attribution. Unresolved groups stay unresolved (no-op).
+        status: sql`CASE WHEN ${errorGroups.status} = 'resolved' THEN 'unresolved' ELSE ${errorGroups.status} END`,
+        resolvedAt: sql`CASE WHEN ${errorGroups.status} = 'resolved' THEN NULL ELSE ${errorGroups.resolvedAt} END`,
+        resolvedBy: sql`CASE WHEN ${errorGroups.status} = 'resolved' THEN NULL ELSE ${errorGroups.resolvedBy} END`,
       },
     })
     .returning({ count: errorGroups.count });

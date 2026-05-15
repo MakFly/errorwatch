@@ -7,7 +7,7 @@ import logger from "../logger";
 
 
 export const GroupService = {
-  getAll: async (filters?: { dateRange?: string; env?: string; search?: string; level?: string; levels?: string[]; httpStatus?: number; sort?: string; page?: number; limit?: number }, projectId?: string) => {
+  getAll: async (filters?: { dateRange?: string; env?: string; search?: string; level?: string; levels?: string[]; httpStatus?: number; status?: "unresolved" | "resolved" | "all"; sort?: string; page?: number; limit?: number }, projectId?: string) => {
     logger.debug("Fetching error groups", { filters, projectId });
     return await GroupRepository.findAll(filters, projectId);
   },
@@ -88,6 +88,17 @@ export const GroupService = {
     }
 
     const result = await GroupRepository.updateAssignment(fingerprint, assignedTo);
+    return result[0] ? { ...group, ...result[0] } : null;
+  },
+
+  updateStatus: async (fingerprint: string, status: "unresolved" | "resolved", userId: string) => {
+    logger.info("Updating issue status", { fingerprint, status, userId });
+    const group = await GroupRepository.findByFingerprint(fingerprint);
+    if (!group) {
+      return null;
+    }
+
+    const result = await GroupRepository.updateStatus(fingerprint, status, userId);
     return result[0] ? { ...group, ...result[0] } : null;
   },
 

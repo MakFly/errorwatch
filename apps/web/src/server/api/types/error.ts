@@ -1,8 +1,9 @@
 import type { Pagination } from './common';
 
 export type ErrorLevel = "fatal" | "error" | "warning" | "info" | "debug";
-/** @deprecated Status lifecycle removed from frontend. Kept for API layer compatibility. */
-export type IssueStatus = "unresolved" | "resolved" | "archived";
+// Binary resolution lifecycle. A new event on a 'resolved' issue auto-reopens it
+// (regression handled in the API event worker).
+export type IssueStatus = "unresolved" | "resolved";
 
 export type ErrorGroup = {
   fingerprint: string;
@@ -21,6 +22,9 @@ export type ErrorGroup = {
   lastSeen: Date;
   assignedTo: string | null;
   assignedAt: Date | null;
+  status: IssueStatus;
+  resolvedAt: Date | null;
+  resolvedBy: string | null;
   hasReplay?: boolean;
   latestReplaySessionId?: string | null;
   latestReplayEventId?: string | null;
@@ -256,6 +260,9 @@ export type GroupsFilter = {
   level?: "fatal" | "error" | "warning" | "info" | "debug";
   levels?: string[];
   httpStatus?: number;
+  // Status filter. Omitting it defaults to 'unresolved' on the API side
+  // (resolved issues are hidden by default, Sentry-style).
+  status?: "unresolved" | "resolved" | "all";
   sort?: "lastSeen" | "firstSeen" | "count";
   page?: number;
   limit?: number;
