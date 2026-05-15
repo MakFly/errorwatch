@@ -130,7 +130,7 @@ export function EventSourcePanel({ event }: { event: ErrorEvent }) {
   const topFrames = (event.frames ?? []).slice(-5).reverse();
 
   return (
-    <div className="grid grid-cols-1 gap-px bg-dashboard-border md:grid-cols-[260px_1fr]">
+    <div className="grid h-full min-h-full grid-cols-1 gap-px bg-dashboard-border md:grid-cols-[260px_1fr]">
       {/* ── Left rail : source label ─────────────────────────────────────────── */}
       <aside className="bg-dashboard-surface px-5 py-6">
         <div className={cn("inline-flex items-center gap-2 rounded-sm px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider", badge.className)}>

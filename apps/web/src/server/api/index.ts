@@ -71,6 +71,7 @@ export const api = {
     getEvents: groupsApi.getEvents,
     getTimeline: groupsApi.getTimeline,
     updateStatus: groupsApi.updateStatus,
+    getStatusHistory: groupsApi.getStatusHistory,
     updateAssignment: groupsApi.updateAssignment,
     getReleases: groupsApi.getReleases,
     getCorrelatedSignals: groupsApi.getCorrelatedSignals,

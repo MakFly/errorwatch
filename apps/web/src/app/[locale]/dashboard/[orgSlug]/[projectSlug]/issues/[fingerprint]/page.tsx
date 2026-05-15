@@ -28,6 +28,7 @@ import type { ErrorLevel } from "@/server/api";
 
 import { DebugProfilePanel } from "@/components/issue-detail/DebugProfilePanel";
 import { EventSourcePanel } from "@/components/issue-detail/EventSourcePanel";
+import { StatusHistoryTimeline } from "@/components/issue-detail/StatusHistoryTimeline";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -326,6 +327,9 @@ export default function IssueDetailPage() {
         </div>
       </header>
 
+      {/* ── Status audit timeline ────────────────────────────────────────────── */}
+      <StatusHistoryTimeline fingerprint={fingerprint} />
+
       {/* ── Profile body ─────────────────────────────────────────────────────── */}
       <div className="min-h-0 flex-1 bg-background">
         {selectedEvent?.debug ? (
@@ -333,7 +337,7 @@ export default function IssueDetailPage() {
         ) : selectedEvent ? (
           <EventSourcePanel event={selectedEvent} />
         ) : (
-          <div className="flex flex-col items-center justify-center bg-background px-6 py-16 text-center md:px-8">
+          <div className="flex h-full min-h-full flex-col items-center justify-center bg-background px-6 py-16 text-center md:px-8">
             <p className="font-mono text-sm font-medium text-muted-foreground">
               {tDetail("noProfilerTitle")}
             </p>

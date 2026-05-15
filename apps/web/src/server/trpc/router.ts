@@ -127,6 +127,12 @@ const groupsRouter = router({
       return api.groups.updateStatus(input.fingerprint, input.status);
     }),
 
+  getStatusHistory: protectedProcedure
+    .input(z.object({ fingerprint: z.string() }))
+    .query(async ({ input }) => {
+      return api.groups.getStatusHistory(input.fingerprint);
+    }),
+
   getReleases: protectedProcedure
     .input(z.object({ fingerprint: z.string() }))
     .query(async ({ input }) => {

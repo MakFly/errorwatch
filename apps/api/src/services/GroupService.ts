@@ -1,7 +1,7 @@
 import { GroupRepository } from "../repositories/GroupRepository";
 import { EventRepository } from "../repositories/EventRepository";
 import { db } from "../db/connection";
-import { errorEvents, applicationLogs, transactions } from "../db/schema";
+import { errorEvents, applicationLogs, transactions, users } from "../db/schema";
 import { eq, and, isNotNull, desc, inArray, sql } from "drizzle-orm";
 import logger from "../logger";
 
@@ -89,6 +89,16 @@ export const GroupService = {
 
     const result = await GroupRepository.updateAssignment(fingerprint, assignedTo);
     return result[0] ? { ...group, ...result[0] } : null;
+  },
+
+  // Batched user lookup used to enrich audit rows (`error_group_status_events`)
+  // with display name + email for the actor column in the UI timeline.
+  getUsersByIds: async (ids: string[]) => {
+    if (ids.length === 0) return [];
+    return db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(inArray(users.id, ids));
   },
 
   updateStatus: async (fingerprint: string, status: "unresolved" | "resolved", userId: string) => {
