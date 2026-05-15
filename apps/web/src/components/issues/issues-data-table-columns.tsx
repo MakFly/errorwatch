@@ -103,30 +103,6 @@ export function createIssuesColumns({
       },
     },
     {
-      // Discreet — column stays compact and only renders content for resolved
-      // issues. The default list filter hides them, so empty cells in the
-      // common case are intentional (no visual noise for unresolved rows).
-      id: "status",
-      accessorKey: "status",
-      header: () => (
-        <span className="sr-only">Status</span>
-      ),
-      cell: ({ row }) => {
-        if (row.original.status !== "resolved") return null
-        return (
-          <Badge
-            variant="outline"
-            className="gap-1 border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-500"
-          >
-            <CheckCircle2Icon className="size-3" />
-            Resolved
-          </Badge>
-        )
-      },
-      enableSorting: false,
-      size: 90,
-    },
-    {
       accessorKey: "message",
       header: ({ column }) => (
         <Button
@@ -156,8 +132,10 @@ export function createIssuesColumns({
           latestBreadcrumbsCount,
           hasReplay,
           latestReplaySessionId,
+          status,
         } = row.original
         const maxLength = 80
+        const isResolved = status === "resolved"
 
         const displayTitle = title && title.length > 0 ? title : message
         const colonIdx = displayTitle.indexOf(": ")
@@ -184,15 +162,33 @@ export function createIssuesColumns({
         return (
           <div className="block min-w-0 max-w-[300px] lg:max-w-[500px]">
             <Link href={issueHref} className="block hover:text-foreground">
-              <span className="block truncate text-sm font-medium" title={displayTitle}>
-                {exceptionType ? (
-                  <>
-                    <span className="font-bold">{exceptionType}: </span>
-                    {truncatedRest}
-                  </>
-                ) : (
-                  truncatedRest
+              <span className="flex items-center gap-2">
+                {isResolved && (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 gap-1 border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-500"
+                    title="Marqué comme résolu — cliquer sur la ligne pour rouvrir"
+                  >
+                    <CheckCircle2Icon className="size-3" />
+                    Résolu
+                  </Badge>
                 )}
+                <span
+                  className={cn(
+                    "block min-w-0 flex-1 truncate text-sm font-medium",
+                    isResolved && "text-muted-foreground line-through decoration-muted-foreground/40",
+                  )}
+                  title={displayTitle}
+                >
+                  {exceptionType ? (
+                    <>
+                      <span className="font-bold">{exceptionType}: </span>
+                      {truncatedRest}
+                    </>
+                  ) : (
+                    truncatedRest
+                  )}
+                </span>
               </span>
               {(topFrameLabel || displayFile) && (
                 <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
